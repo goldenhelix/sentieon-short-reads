@@ -1,0 +1,188 @@
+name: Variant Calling with DNAscope 
+description: Variant calling from an alignment file with Sentieon's DNAscope algorithm
+
+parameters:
+  - name: sample_name
+    label: Sample Name
+    type: string
+
+  - name: input_file
+    label: Input Alignment File
+    type: file
+    pattern_match:
+      - "*.bam"
+      - "*.cram"
+    create: false
+
+  - name: output_folder
+    label: Output Folder
+    type: directory
+
+  - name: ref_fasta
+    label: Reference File (FASTA)
+    type: file
+    value: "CloudStorage/resources/hg38_noalt/GCA_000001405.15_GRCh38_no_alt_analysis_set_maskedGRC_exclusions_v2.fasta"
+
+  - name: ml_model
+    value: "None"
+    label: Machine Learning Model
+    type: enum
+    choices: [None, Element Biosciences WGS 2.0, Illumina WES 2.1, Illumina WGS 2.2,
+              MGI WES 2.0, MGI WGS 2.0, Salus WES 1.0, Salus WGS 1.0, 
+              Ultima Genomics WGS 1.0]
+    optional: false
+
+  - name: model_base_path
+    label: Sentieon Models Base Path
+    group: Advanced Options 
+    type: directory
+    value: "CloudStorage/resources/sentieon_models"
+
+  - name: pcr_free
+    label: PCR Free Sample
+    type: boolean
+    value: "false"
+    help: Set to true if the sample is PCR-free library prep for WGS
+
+  - name: output_gvcf
+    label: Output GVCF
+    type: boolean
+    value: "false"
+    help: Set to true to output GVCF format instead of VCF
+
+agent_requirements:
+  cpu_cores: 32
+  memory_gb: 16
+
+steps:
+  - name: dnascope
+    description: Run Sentieon DNAscope variant calling
+    type: cmd
+    docker:
+      image: registry.goldenhelix.com/gh/sentieon:latest
+    args:
+      - |-
+        set -eu pipefail
+
+        # License configuration
+        export SENTIEON_LICENSE="$GH_SERVER:8990"
+
+        num_threads=$AGENT_CPU_CORES
+        workdir="/scratch"
+
+        # Collect parameters
+        pattern=" | "
+        if [[ "$sample_name" =~ "$pattern" ]]; then
+          echo "Sample name should not contain whitespace"
+          exit 1
+        fi
+
+        # Define metrics directory path
+        metrics_dir="${output_folder}/${sample_name}_metrics"
+
+        echo "Selecting model file..."
+
+        case "$ml_model" in
+
+          "None")
+            model_path=""
+            ;;
+
+          "Illumina WES 2.1")
+            model_path="$model_base_path/DNAscopeIlluminaWES2.1.bundle"
+            ;;
+
+          "Illumina WGS 2.2")
+            model_path="$model_base_path/SentieonIlluminaWGS2.2.bundle"
+            ;;
+
+          "Element Biosciences WGS 2.0")
+            model_path="$model_base_path/DNAscopeElementBioWGS2.0.bundle"
+            ;;
+
+          "MGI WES 2.0")
+            model_path="$model_base_path/DNAscopeMGIWES2.0.bundle"
+            ;;
+
+          "MGI WGS 2.0")
+            model_path="$model_base_path/DNAscopeMGIWGS2.0.bundle"
+            ;;
+
+          "Salus WES 1.0")
+            model_path="$model_base_path/DNAscopeSalusWES1.0.bundle"
+            ;;
+
+          "Salus WGS 1.0")
+            model_path="$model_base_path/DNAscopeSalusWGS1.0.bundle"
+            ;;
+
+          "Ultima Genomics WGS 1.0")
+            model_path="$model_base_path/SentieonUltima1.0.bundle"
+            ;;
+
+          *)
+            model_path=""
+            ;;
+
+        esac
+
+        echo "Starting analysis for $sample_name..."
+
+        mkdir -p "$output_folder" || { echo "Failed to create output directory"; exit 1; }
+        logfile="$output_folder"/${sample_name}_dnascope_run.log
+        exec > >(tee -a "$logfile") 2>&1 || { echo "Failed to redirect stdout and stderr to $logfile"; exit 1; }
+        cd "$workdir" || { echo "Failed to change to output directory"; exit 1; }
+
+        # Copy input files to workdir for better performance
+        echo "Copying input files to workdir..."
+        echo "Available space in workdir: $(df -h /scratch | awk 'NR==2 {print $4}')"
+        input_basename=$(basename "$input_file")
+        cp "$input_file"* . || { echo "Failed to copy input files to workdir"; exit 1; }
+
+        # Construct extra parameters based on settings
+        extra_params=""
+        if [ "$pcr_free" = true ]; then
+            extra_params="$extra_params --pcr_indel_model none"
+        fi
+        if [ "$output_gvcf" = true ]; then
+            extra_params="$extra_params --emit_mode gvcf"
+            output_suffix="g.vcf.gz"
+        else
+            output_suffix="vcf.gz"
+        fi
+
+        # Print info
+        echo "*************************"
+        echo "Running DNAscope variant calling..."
+        echo "ML Model:      $model_path"
+        echo "Input file:    $input_basename"
+        echo "Output folder: $output_folder"
+        echo "CPU Cores:     $AGENT_CPU_CORES"
+        echo "Memory:        $AGENT_MEMORY_GB GB"
+        echo "PCR Free:      $pcr_free"
+        echo "Output GVCF:   $output_gvcf"
+        echo "*************************"
+
+        # Run DNAscope variant calling
+        start_time=$SECONDS
+
+        if [[ ! -z "$model_path" ]]; then
+          sentieon driver -r "$ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
+            --algo DNAscope --model "$model_path/dnascope.model" $extra_params \
+            "${sample_name}_dnascope_tmp.$output_suffix" || \
+            { echo "DNAscope variant calling failed"; exit 1; }
+
+          sentieon driver -r "$ref_fasta" -t $num_threads --temp_dir "$workdir" \
+            --algo DNAModelApply --model "$model_path/dnascope.model" \
+            -v "${sample_name}_dnascope_tmp.$output_suffix" "${output_folder}/${sample_name}_dnascope.$output_suffix" || \
+            { echo "DNAModelApply failed"; exit 1; }
+        else
+          sentieon driver -r "$ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
+            --algo DNAscope $extra_params \
+            "${output_folder}/${sample_name}_dnascope.$output_suffix" || \
+            { echo "DNAscope variant calling failed"; exit 1; }
+        fi
+
+        duration=$((SECONDS - start_time))
+        file_size=$(stat -c%s "${output_folder}/${sample_name}_dnascope.$output_suffix")
+        echo "${sample_name}_dnascope.$output_suffix ($file_size bytes) called in $duration seconds"

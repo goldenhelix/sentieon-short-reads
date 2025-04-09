@@ -1,0 +1,380 @@
+name: Alignment with BWA-MEM
+description: BWA Mem alignment on one or more FASTQ files for a single sample
+
+parameters:
+  - name: sample_name
+    label: Sample Name
+    type: string
+    optional: false
+
+  - name: input_folder
+    label: Input Folder
+    type: directory
+
+  - name: output_folder
+    label: Output Folder
+    type: directory
+
+  - name: ref_fasta
+    label: Reference File (FASTA)
+    type: file
+    value: "CloudStorage/resources/hg38_noalt/GCA_000001405.15_GRCh38_no_alt_analysis_set_maskedGRC_exclusions_v2.fasta"
+    
+  - name: ml_model
+    value: "None"
+    label: Machine Learning Model
+    type: enum
+    choices: [None, Element Biosciences WGS 2.0, Illumina WES 2.1, Illumina WGS 2.2,
+              MGI WES 2.0, MGI WGS 2.0, Salus WES 1.0, Salus WGS 1.0, 
+              Ultima Genomics WGS 1.0]
+    optional: false
+
+  - name: use_prefix
+    label: Use Sample Name as Prefix Filter
+    group: Advanced Options
+    type: boolean
+    value: "false"
+    help: "If enabled, only FASTQ files starting with the sample name will be processed. Enable this when the input folder contains FASTQ files from multiple samples. If disabled, all FASTQ files in the input folder are assumed to belong to this sample."
+
+  - name: paired_end
+    label: paired_end Reads
+    group: Advanced Options
+    type: boolean
+    value: "true"
+  
+  - name: perform_dedup
+    label: Perform Deduplication
+    group: Advanced Options
+    type: boolean
+    value: "true"
+
+  - name: output_metrics
+    label: Output Metrics
+    group: Advanced Options
+    type: boolean
+    value: "true"
+
+  - name: cram 
+    label: Output CRAM 
+    group: Advanced Options
+    type: boolean
+    value: "false"
+
+  - name: model_base_path
+    label: Sentieon Models Base Path
+    group: Advanced Options 
+    type: directory
+    value: "CloudStorage/resources/sentieon_models"
+
+  - name: input_bases_per_batch
+    label: Input Bases Per Batch (For Reproducibility)
+    type: integer
+    group: BWA-MEM Options
+    value: "10000000"
+
+agent_requirements:
+  cpu_cores: 8 #64
+  memory_gb: 30 # 128
+  # agent_profile: azure_extra_large
+
+steps:
+  - name: bwa-mem
+    description: Run BWA-MEM
+    type: cmd
+    docker:
+      image: registry.goldenhelix.com/gh/sentieon:latest
+    args:
+      - |-
+        set -eu pipefail
+
+        # License configuration
+        export SENTIEON_LICENSE="$GH_SERVER:8990"
+
+        # Agent setup
+        echo "*************************"
+        echo "Agent allocated..."
+        echo -e "\tCPU Cores: $AGENT_CPU_CORES"
+        bwt_mem=$((AGENT_MEMORY_GB - 2))
+        echo -e "\tBWA Max Mem: ${bwt_mem}GB"
+        echo "*************************"
+
+        num_threads=$AGENT_CPU_CORES
+        export bwt_max_mem="$bwt_mem"G
+
+        # Collect parameters
+
+        pattern=" | "
+        if [[ "$sample_name" =~ "$pattern" ]]; then
+          echo "Sample name should not contain whitespace"
+          exit 1
+        fi
+
+        # Define metrics directory path
+        metrics_dir="${output_folder}/${sample_name}_metrics"
+
+        echo "Selecting model file..."
+
+        case "$ml_model" in
+
+          "None")
+            platform="ILLUMINA"
+            model_path=""
+            ;;
+
+          "Illumina WES 2.1")
+            platform="ILLUMINA"
+            model_path="$model_base_path/DNAscopeIlluminaWES2.1.bundle"
+            ;;
+
+          "Illumina WGS 2.2")
+            platform="ILLUMINA"
+            model_path="$model_base_path/SentieonIlluminaWGS2.2.bundle"
+            ;;
+
+          "Element Biosciences WGS 2.0")
+            platform="ELEMENT"
+            model_path="$model_base_path/DNAscopeElementBioWGS2.0.bundle"
+            ;;
+
+          "MGI WES 2.0")
+            platform="MGI"
+            model_path="$model_base_path/DNAscopeMGIWES2.0.bundle"
+            ;;
+
+          "MGI WGS 2.0")
+            platform="MGI"
+            model_path="$model_base_path/DNAscopeMGIWGS2.0.bundle"
+            ;;
+
+          "Salus WES 1.0")
+            platform="SALUS"
+            model_path="$model_base_path/DNAscopeSalusWES1.0.bundle"
+            ;;
+
+          "Salus WGS 1.0")
+            platform="SALUS"
+            model_path="$model_base_path/DNAscopeSalusWGS1.0.bundle"
+            ;;
+
+          "Ultima Genomics WGS 1.0")
+            platform="ULTIMA"
+            model_path="$model_base_path/SentieonUltima1.0.bundle"
+            ;;
+
+          *)
+            platform="ILLUMINA"
+            model_path=""
+            ;;
+
+        esac
+
+        echo "Setting input parameters..."
+
+        # Advanced Options
+        if [[ $cram == true ]]; then
+          align_extension=".cram"
+        else
+          align_extension=".bam"
+        fi
+
+        echo "Starting analysis for $sample_name..."
+
+        workdir="/scratch"
+        mkdir -p "$output_folder" || { echo "Failed to create output directory"; exit 1; }
+        logfile="$output_folder"/${sample_name}_bwa_run.log
+        exec > >(tee -a "$logfile") 2>&1 || { echo "Failed to redirect stdout and stderr to $logfile"; exit 1; }
+        cd "$workdir" || { echo "Failed to change to output directory"; exit 1; }
+
+        # Print info
+        echo "*************************"
+        echo "Running BWA-MEM..."
+        echo "ML Model: $model_path"
+        echo "Input folder: $input_folder"
+        if [[ "$use_prefix" == "true" ]]; then
+          echo "Input filter: ${sample_name}*.fastq.gz"
+        else
+          echo "Input filter: *.fastq.gz"
+        fi
+        echo "Output folder: $output_folder"
+        echo "*************************"
+
+        # BWA-MEM
+        # If use_prefix is enabled, only process FASTQ files starting with the sample name
+        # This allows the input folder to contain FASTQ files from multiple samples
+        # If disabled, process all FASTQ files in the input folder as a single sample
+
+        bam_input=""
+        if [[ $paired_end == true ]]; then
+          while IFS= read -r file; do
+            if [[ "$file" =~ _R1_ ]]; then
+              fastq_1="$file"
+              fastq_2="${file/_R1_/_R2_}"
+              reads_base="${fastq_1%%_R1*}"
+              sample_lane=$(basename "$reads_base")
+              if [[ -f "$fastq_2" ]]; then
+                echo "fastq_1: $fastq_1"
+                echo "fastq_2: $fastq_2"
+                echo "output: ${sample_lane}.bam"
+                bam_input="$bam_input -i ${sample_lane}.bam"
+                read_groups="@RG\tID:${sample_lane}\tSM:$sample_name\tPL:$platform"
+                start_time=$SECONDS
+                sentieon bwa mem \
+                  -R "$read_groups" \
+                  ${model_path:+-x "${model_path}"/bwa.model} \
+                  -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
+                  "$fastq_1" "$fastq_2" | \
+                  sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - || \
+                  { echo "BWA-MEM failed"; exit 1; }
+                duration=$((SECONDS - start_time))
+                file_size=$(stat -c%s "${sample_lane}.bam")
+                echo "${sample_lane}.bam ($file_size bytes) aligned in $duration seconds"
+              fi
+            fi
+          done < <(if [[ "$use_prefix" == "true" ]]; then
+            find "$input_folder" -type f \( -name "${sample_name}*.fastq.gz" -o -name "${sample_name}*.fq.gz" \)
+          else
+            find "$input_folder" -type f \( -name "*.fastq.gz" -o -name "*.fq.gz" \)
+          fi)
+        else
+          while IFS= read -r file; do
+            reads_base="${file%.*}"
+            sample_lane=$(basename "$reads_base")
+            echo "input: $file"
+            echo "output: ${sample_lane}.bam"
+            bam_input="$bam_input -i ${sample_lane}.bam"
+            read_groups="@RG\tID:${sample_lane}\tSM:$sample_name\tPL:$platform"
+            start_time=$SECONDS
+            sentieon bwa mem \
+              -M -R "$read_groups" \
+              ${model_path:+-x "${model_path}"/bwa.model} \
+              -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
+              "$file" | \
+              sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - || \
+              { echo "BWA-MEM failed"; exit 1; }
+            duration=$((SECONDS - start_time))
+            file_size=$(stat -c%s "${sample_lane}.bam")
+            echo "${sample_lane}.bam ($file_size bytes) aligned in $duration seconds"
+          done < <(if [[ "$use_prefix" == "true" ]]; then
+            find "$input_folder" -type f \( -name "${sample_name}*.fastq.gz" -o -name "${sample_name}*.fq.gz" \)
+          else
+            find "$input_folder" -type f \( -name "*.fastq.gz" -o -name "*.fq.gz" \)
+          fi)
+        fi
+
+        if [ "$bam_input" = "" ]; then
+          echo "ERROR: No FASTQ files found in $input_folder"
+          exit 1
+        fi
+
+        echo "*************************"
+        echo "Alignment and sorting complete"
+        echo "Disk usage: $(du -sh . | cut -f1)"
+        if [[ $output_metrics == true && $perform_dedup == true ]]; then
+          echo "Outputting metrics and performing deduplication"
+        elif [[ $output_metrics == true && $perform_dedup == false ]]; then
+          echo "Outputting metrics and merging BAMs"
+        elif [[ $output_metrics == false && $perform_dedup == true ]]; then
+          echo "Performing deduplication"
+        else
+          echo "Merging BAMs"
+        fi
+        echo "*************************"
+
+        if [ $output_metrics == true ]; then
+          
+          start_time=$SECONDS
+
+          # Create local metrics directory instead of writing directly to cloud storage
+          local_metrics_dir="metrics"
+          mkdir -p "$local_metrics_dir" || { echo "Failed to create local metrics directory"; exit 1; }
+
+          if [ $perform_dedup == true ]; then
+            # When both metrics and dedup are needed, combine the operations
+            sentieon driver -r "$ref_fasta" -t $num_threads $bam_input --temp_dir "$workdir" \
+              --algo LocusCollector --fun score_info score.txt.gz \
+              --algo MeanQualityByCycle "$local_metrics_dir/${sample_name}_mq_metrics.txt" \
+              --algo QualDistribution "$local_metrics_dir/${sample_name}_qd_metrics.txt" \
+              --algo GCBias --summary "$local_metrics_dir/${sample_name}_gc_summary.txt" "$local_metrics_dir/${sample_name}_gc_metrics.txt" \
+              --algo AlignmentStat --adapter_seq '' "$local_metrics_dir/${sample_name}_aln_metrics.txt" \
+              --algo InsertSizeMetricAlgo "$local_metrics_dir/${sample_name}_is_metrics.txt" || \
+              { echo "Metrics and LocusCollector failed"; exit 1; }
+          else
+            # Just metrics collection
+            sentieon driver -r "$ref_fasta" -t $num_threads $bam_input --temp_dir "$workdir" \
+              --algo MeanQualityByCycle "$local_metrics_dir/${sample_name}_mq_metrics.txt" \
+              --algo QualDistribution "$local_metrics_dir/${sample_name}_qd_metrics.txt" \
+              --algo GCBias --summary "$local_metrics_dir/${sample_name}_gc_summary.txt" "$local_metrics_dir/${sample_name}_gc_metrics.txt" \
+              --algo AlignmentStat --adapter_seq '' "$local_metrics_dir/${sample_name}_aln_metrics.txt" \
+              --algo InsertSizeMetricAlgo "$local_metrics_dir/${sample_name}_is_metrics.txt" || \
+              { echo "Metrics failed"; exit 1; }
+          fi
+
+          sentieon plot QualDistribution \
+            -o "$local_metrics_dir/${sample_name}_qd_metrics.pdf" "$local_metrics_dir/${sample_name}_qd_metrics.txt"
+          sentieon plot MeanQualityByCycle \
+            -o "$local_metrics_dir/${sample_name}_mq_metrics.pdf" "$local_metrics_dir/${sample_name}_mq_metrics.txt"
+          sentieon plot GCBias \
+            -o "$local_metrics_dir/${sample_name}_gc_metrics.pdf" "$local_metrics_dir/${sample_name}_gc_metrics.txt"
+          sentieon plot InsertSizeMetricAlgo \
+            -o "$local_metrics_dir/${sample_name}_is_metrics.pdf" "$local_metrics_dir/${sample_name}_is_metrics.txt"
+        
+          duration=$((SECONDS - start_time))
+          echo "Metrics generated in $duration seconds"
+        
+        fi  
+
+        if [ $perform_dedup == true ]; then
+
+          start_time=$SECONDS
+
+          if [ $output_metrics == true ]; then
+            sentieon driver -r "$ref_fasta" -t $num_threads --temp_dir "$workdir" $bam_input --algo Dedup \
+              --score_info score.txt.gz --metrics "$local_metrics_dir/${sample_name}_dedup_metrics.txt" \
+              "${output_folder}/${sample_name}_deduped${align_extension}" || \
+              { echo "Deduplication failed"; exit 1; }
+          else
+            sentieon driver -t $num_threads --temp_dir "$workdir" $bam_input --algo LocusCollector \
+              --fun score_info score.txt.gz || { echo "LocusCollector failed"; exit 1; }
+            sentieon driver -r "$ref_fasta" -t $num_threads --temp_dir "$workdir" $bam_input --algo Dedup \
+              --score_info score.txt.gz \
+              "${output_folder}/${sample_name}_deduped${align_extension}" || \
+              { echo "Deduplication failed"; exit 1; }
+          fi
+
+          duration=$((SECONDS - start_time))
+          echo "Deduplication completed in $duration seconds"
+
+        else
+
+          start_time=$SECONDS
+
+          # Count how many -i arguments we have in bam_input
+          bam_count=$(echo "$bam_input" | grep -o '\-i' | wc -l)
+
+          if [ "$bam_count" -eq 1 ] && [ "$cram" == false ]; then
+            # If only one input BAM, just copy it to the output
+            input_bam=$(echo "$bam_input" | sed 's/-i *//' | xargs)
+            cp "$input_bam" "${output_folder}/${sample_name}_sorted${align_extension}" || \
+              { echo "Copy failed"; exit 1; }
+            if [[ "$align_extension" == ".bam" ]]; then
+              cp "${input_bam}.bai" "${output_folder}/${sample_name}_sorted${align_extension}.bai" 2>/dev/null || true
+            else
+              cp "${input_bam}.crai" "${output_folder}/${sample_name}_sorted${align_extension}.crai" 2>/dev/null || true
+            fi
+          else
+            # Multiple BAMs need to be merged or CRAM output is requested
+            sentieon driver -r "$ref_fasta" -t $num_threads --temp_dir "$workdir" $bam_input --algo ReadWriter \
+              "${output_folder}/${sample_name}_sorted${align_extension}" || \
+              { echo "Merging failed"; exit 1; }
+          fi
+
+          duration=$((SECONDS - start_time))
+          echo "File operation completed in $duration seconds"
+        fi
+
+        # Copy metrics to cloud storage if they were generated
+        if [ $output_metrics == true ]; then
+          mkdir -p "$metrics_dir" || { echo "Failed to create cloud metrics directory"; exit 1; }
+          cp -r "$local_metrics_dir"/* "$metrics_dir/" || { echo "Failed to copy metrics to cloud storage"; exit 1; }
+          echo "Metrics copied to cloud storage"
+        fi
