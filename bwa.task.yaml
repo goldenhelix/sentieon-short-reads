@@ -82,7 +82,7 @@ steps:
     description: Run BWA-MEM
     type: cmd
     docker:
-      image: registry.goldenhelix.com/gh/sentieon:latest
+      image: registry.goldenhelix.com/public/sentieon:202503
     args:
       - |-
         set -eu pipefail

@@ -101,5 +101,5 @@ These workflows and tasks are designed to be run on the Golden Helix server work
 ## Requirements
 
 - Sentieon license
-- Docker with the Sentieon image: `registry.goldenhelix.com/gh/sentieon:latest`
+- Docker with the Sentieon image: `registry.goldenhelix.com/public/sentieon:202503`
 - Sufficient computational resources (CPU cores and memory as specified in each task)

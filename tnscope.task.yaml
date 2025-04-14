@@ -35,7 +35,7 @@ steps:
     description: Run TNscope variant calling
     type: cmd
     docker:
-      image: registry.goldenhelix.com/gh/sentieon:latest
+      image: registry.goldenhelix.com/public/sentieon:202503
     args:
       - |-
         set -eu pipefail
