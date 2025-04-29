@@ -1,18 +1,20 @@
-name: Tumor Variant Calling with TNScope
+name: Tumor Normal Calling with TNScope
 description: Variant calling from an alignment file with Sentieon's TNScope algorithm
 
 parameters:
-  - name: sample_name
-    label: Sample Name
-    type: string
-
-  - name: input_file
-    label: Input Alignment File
-    type: file
+  - name: input_tumor
+    label: Tumor Sample Alignments
     pattern_match:
       - "*.bam"
       - "*.cram"
-    create: false
+    type: file
+
+  - name: input_normal
+    label: Normal Sample Alignments
+    pattern_match:
+      - "*.bam"
+      - "*.cram"
+    type: file
 
   - name: output_folder
     label: Output Folder
@@ -24,9 +26,9 @@ parameters:
     value: "CloudStorage/resources/hg38_noalt/GCA_000001405.15_GRCh38_no_alt_analysis_set_maskedGRC_exclusions_v2.fasta"
 
 agent_requirements:
-  cpu_cores: 8
+  cpu_cores: 32
   memory_gb: 16
-  # agent_profile: azure_extra_large
+  agent_profile: azure_extra_large
 
 steps:
   - name: tnscope
@@ -44,8 +46,14 @@ steps:
         num_threads=$AGENT_CPU_CORES
         workdir="/scratch"
 
+        # Extract base names by removing the extension
+        tumor_base_file=$(basename "$input_tumor")
+        tumor_base="${tumor_base_file%%.*}"
+        normal_base_file=$(basename "$input_normal")
+        normal_base="${normal_base_file%%.*}"
+
         # Construct output VCF file name
-        output_vcf="${output_folder}/${sample_name}_tnscope.vcf.gz"
+        output_vcf="${output_folder}/${tumor_base}_${normal_base}_tnscope.vcf.gz"
 
         # Check if the output VCF already exists
         if [ -f "$output_vcf" ]; then
@@ -56,18 +64,22 @@ steps:
         # Create output folder if it doesn't exist
         mkdir -p "$output_folder" || { echo "Failed to create output directory"; exit 1; }
         cd "$workdir" || { echo "Failed to change to output directory"; exit 1; }
-        logfile=${sample_name}_tnscope_run.log
+        logfile=${tumor_base}_${normal_base}_tnscope_run.log
         exec > >(tee -a "$logfile") 2>&1 || { echo "Failed to redirect stdout and stderr to $logfile"; exit 1; }
 
         # Copy input files to workdir for better performance
         echo "Copying input files to workdir..."
         echo "Available space in workdir: $(df -h /scratch | awk 'NR==2 {print $4}')"
-        cp "$input_file" . || { echo "Failed to copy tumor files to workdir"; exit 1; }
+        tumor_basename=$(basename "$input_tumor")
+        normal_basename=$(basename "$input_normal")
+        cp "$input_tumor"* . || { echo "Failed to copy tumor files to workdir"; exit 1; }
+        cp "$input_normal"* . || { echo "Failed to copy normal files to workdir"; exit 1; }
 
         # Print info
         echo "*************************"
         echo "Running TNscope variant calling..."
-        echo "Tumor file:    $input_file"
+        echo "Tumor file:   $tumor_basename"
+        echo "Normal file:   $normal_basename"
         echo "Output folder: $output_folder"
         echo "CPU Cores:     $AGENT_CPU_CORES"
         echo "Memory:        $AGENT_MEMORY_GB GB"
@@ -77,14 +89,15 @@ steps:
 
         # Run TNscope variant calling
         sentieon driver -t $num_threads -r "$ref_fasta" \
-            -i "$input_file" \
+            -i "$tumor_basename" \
+            -i "$normal_basename" \
             --temp_dir "$workdir" \
             --algo TNscope \
             --disable_detector sv \
-            --tumor_sample "$sample_name" \
+            --tumor_sample "$tumor_base" --normal_sample "$normal_base" \
             "$output_vcf" || { echo "TNscope variant calling failed"; exit 1; }
 
         duration=$((SECONDS - start_time))
         file_size=$(stat -c%s "$output_vcf")
-        echo "${sample_name}_tnscope.vcf.gz ($file_size bytes) called in $duration seconds"
-        cp -f ${sample_name}_tnscope_run.log "$output_folder"/
+        echo "${tumor_base}_${normal_base}_tnscope.vcf.gz ($file_size bytes) called in $duration seconds"
+        cp -f ${tumor_base}_${normal_base}_tnscope_run.log "$output_folder"/

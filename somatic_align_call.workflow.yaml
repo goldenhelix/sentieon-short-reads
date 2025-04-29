@@ -1,0 +1,71 @@
+name: Somatic Alignment and Variant Calling
+description: Perform alignment and variant calling with BWA-MEM and DNAscope
+stages:
+  - name: Alignment with BWA-MEM
+    description: Align FASTQ files with BWA-MEM
+    task_path: bwa.task.yaml
+    depends_on: []
+
+    glob_parameter:
+      label: FASTQ Base Folder
+      path:
+        type: directory
+      glob_ex: '*/*_*R1*.f*q.gz'
+      output_parameters:
+        - task_parameter_name: input_folder
+          expression: '${1}'
+        - task_parameter_name: sample_name
+          expression: '${2}'
+      
+    task_parameters:
+      - name: output_folder 
+        label: Output Folder
+        type: directory
+
+      - name: ref_fasta
+        label: Reference File (FASTA)
+        type: file
+        value: "CloudStorage/resources/hg38_noalt/GCA_000001405.15_GRCh38_no_alt_analysis_set_maskedGRC_exclusions_v2.fasta"
+
+      - name: ml_model
+        label: ML Model
+        type: stage
+        stage_parameter_expression: "None"
+        value: "None"
+
+      - name: use_prefix
+        label: Use Sample Name as Prefix Filter
+        type: stage
+        stage_parameter_expression: "true"
+
+  - name: Variant Calling with TNscope
+    description: Variant calling from an alignment file with Sentieon's DNAscope algorithm
+    task_path: tnscope.task.yaml
+    depends_on:
+      - Alignment with BWA-MEM
+    
+    glob_parameter:
+      label: Alignment Folder
+      path:
+        type: stage
+        stage: Alignment with BWA-MEM
+        parameter: output_folder
+      glob_ex: '*/*_*.bam'
+      output_parameters:
+        - task_parameter_name: input_file
+          expression: '${0}'
+        - task_parameter_name: sample_name
+          expression: "${2}"
+
+    task_parameters:
+      - name: output_folder
+        label: Output Folder
+        type: stage
+        stage: Alignment with BWA-MEM
+        stage_parameter_expression: "${output_folder}"
+
+      - name: ref_fasta
+        label: Reference File (FASTA)
+        type: stage
+        stage: Alignment with BWA-MEM
+        stage_parameter_expression: "${ref_fasta}"
