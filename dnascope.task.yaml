@@ -129,9 +129,9 @@ steps:
         echo "Starting analysis for $sample_name..."
 
         mkdir -p "$output_folder" || { echo "Failed to create output directory"; exit 1; }
-        logfile="$output_folder"/${sample_name}_dnascope_run.log
-        exec > >(tee -a "$logfile") 2>&1 || { echo "Failed to redirect stdout and stderr to $logfile"; exit 1; }
         cd "$workdir" || { echo "Failed to change to output directory"; exit 1; }
+        logfile=${sample_name}_dnascope_run.log
+        exec > >(tee -a "$logfile") 2>&1 || { echo "Failed to redirect stdout and stderr to $logfile"; exit 1; }
 
         # Copy input files to workdir for better performance
         echo "Copying input files to workdir..."
@@ -186,3 +186,4 @@ steps:
         duration=$((SECONDS - start_time))
         file_size=$(stat -c%s "${output_folder}/${sample_name}_dnascope.$output_suffix")
         echo "${sample_name}_dnascope.$output_suffix ($file_size bytes) called in $duration seconds"
+        cp -f ${sample_name}_dnascope_run.log "$output_folder"/

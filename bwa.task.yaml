@@ -73,8 +73,8 @@ parameters:
     value: "10000000"
 
 agent_requirements:
-  cpu_cores: 8 #64
-  memory_gb: 30 # 128
+  cpu_cores: 32
+  memory_gb: 64
   # agent_profile: azure_extra_large
 
 steps:
@@ -181,9 +181,9 @@ steps:
 
         workdir="/scratch"
         mkdir -p "$output_folder" || { echo "Failed to create output directory"; exit 1; }
-        logfile="$output_folder"/${sample_name}_bwa_run.log
-        exec > >(tee -a "$logfile") 2>&1 || { echo "Failed to redirect stdout and stderr to $logfile"; exit 1; }
         cd "$workdir" || { echo "Failed to change to output directory"; exit 1; }
+        logfile=${sample_name}_bwa_run.log
+        exec > >(tee -a "$logfile") 2>&1 || { echo "Failed to redirect stdout and stderr to $logfile"; exit 1; }
 
         # Print info
         echo "*************************"
@@ -378,3 +378,5 @@ steps:
           cp -r "$local_metrics_dir"/* "$metrics_dir/" || { echo "Failed to copy metrics to cloud storage"; exit 1; }
           echo "Metrics copied to cloud storage"
         fi
+
+        cp -f ${sample_name}_bwa_run.log "$output_folder"/
