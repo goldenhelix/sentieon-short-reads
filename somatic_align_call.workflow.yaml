@@ -38,6 +38,11 @@ stages:
         type: stage
         stage_parameter_expression: "true"
 
+      - name: perform_dedup
+        label: Perform Deduplication (De-Select for Amplicon Data)
+        type: boolean
+        value: "true"
+
   - name: Variant Calling with TNscope
     description: Variant calling from an alignment file with Sentieon's DNAscope algorithm
     task_path: tnscope.task.yaml
