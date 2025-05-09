@@ -218,12 +218,14 @@ steps:
                 bam_input="$bam_input -i ${sample_lane}.bam"
                 read_groups="@RG\tID:${sample_lane}\tSM:$sample_name\tPL:$platform"
                 start_time=$SECONDS
-                sentieon bwa mem \
+                { (sentieon bwa mem \
                   -R "$read_groups" \
                   ${model_path:+-x "${model_path}"/bwa.model} \
                   -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
-                  "$fastq_1" "$fastq_2" | \
-                  sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - || \
+                  "$fastq_1" "$fastq_2" \
+                  || { echo "ERROR: BWA-MEM alignment failed for $file"; false; }) \
+                  2>&3 | sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
+                  3>&1 1>&2 | grep -v --line-buffered "^\[M::mem_pestat" | grep -v --line-buffered "^\[M::process" | grep -v --line-buffered "^\[M::mem_process" || \
                   { echo "BWA-MEM failed"; exit 1; }
                 duration=$((SECONDS - start_time))
                 file_size=$(stat -c%s "${sample_lane}.bam")
@@ -244,12 +246,14 @@ steps:
             bam_input="$bam_input -i ${sample_lane}.bam"
             read_groups="@RG\tID:${sample_lane}\tSM:$sample_name\tPL:$platform"
             start_time=$SECONDS
-            sentieon bwa mem \
+            { (sentieon bwa mem \
               -M -R "$read_groups" \
               ${model_path:+-x "${model_path}"/bwa.model} \
               -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
-              "$file" | \
-              sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - || \
+              "$file" \
+              || { echo "ERROR: BWA-MEM alignment failed for $file"; false; }) \
+              2>&3 | sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
+              3>&1 1>&2 | grep -v --line-buffered "^\[M::mem_pestat" | grep -v --line-buffered "^\[M::process" | grep -v --line-buffered "^\[M::mem_process" || \
               { echo "BWA-MEM failed"; exit 1; }
             duration=$((SECONDS - start_time))
             file_size=$(stat -c%s "${sample_lane}.bam")
@@ -288,9 +292,13 @@ steps:
           local_metrics_dir="metrics"
           mkdir -p "$local_metrics_dir" || { echo "Failed to create local metrics directory"; exit 1; }
 
+          cp "$ref_fasta" . || { echo "Failed to copy reference FASTA"; exit 1; }
+          cp "$ref_fasta".fai . || { echo "Failed to copy reference FASTA"; exit 1; }
+          local_ref_fasta=$(basename "$ref_fasta")
+
           if [ $perform_dedup == true ]; then
             # When both metrics and dedup are needed, combine the operations
-            sentieon driver -r "$ref_fasta" -t $num_threads $bam_input --temp_dir "$workdir" \
+            sentieon driver -r "$local_ref_fasta" -t $num_threads $bam_input --temp_dir "$workdir" \
               --algo LocusCollector --fun score_info score.txt.gz \
               --algo MeanQualityByCycle "$local_metrics_dir/${sample_name}_mq_metrics.txt" \
               --algo QualDistribution "$local_metrics_dir/${sample_name}_qd_metrics.txt" \
@@ -300,7 +308,7 @@ steps:
               { echo "Metrics and LocusCollector failed"; exit 1; }
           else
             # Just metrics collection
-            sentieon driver -r "$ref_fasta" -t $num_threads $bam_input --temp_dir "$workdir" \
+            sentieon driver -r "$local_ref_fasta" -t $num_threads $bam_input --temp_dir "$workdir" \
               --algo MeanQualityByCycle "$local_metrics_dir/${sample_name}_mq_metrics.txt" \
               --algo QualDistribution "$local_metrics_dir/${sample_name}_qd_metrics.txt" \
               --algo GCBias --summary "$local_metrics_dir/${sample_name}_gc_summary.txt" "$local_metrics_dir/${sample_name}_gc_metrics.txt" \
@@ -310,13 +318,13 @@ steps:
           fi
 
           sentieon plot QualDistribution \
-            -o "$local_metrics_dir/${sample_name}_qd_metrics.pdf" "$local_metrics_dir/${sample_name}_qd_metrics.txt"
+            -o "$local_metrics_dir/${sample_name}_qd_metrics.pdf" "$local_metrics_dir/${sample_name}_qd_metrics.txt" >/dev/null 2>&1
           sentieon plot MeanQualityByCycle \
-            -o "$local_metrics_dir/${sample_name}_mq_metrics.pdf" "$local_metrics_dir/${sample_name}_mq_metrics.txt"
+            -o "$local_metrics_dir/${sample_name}_mq_metrics.pdf" "$local_metrics_dir/${sample_name}_mq_metrics.txt" >/dev/null 2>&1
           sentieon plot GCBias \
-            -o "$local_metrics_dir/${sample_name}_gc_metrics.pdf" "$local_metrics_dir/${sample_name}_gc_metrics.txt"
+            -o "$local_metrics_dir/${sample_name}_gc_metrics.pdf" "$local_metrics_dir/${sample_name}_gc_metrics.txt" >/dev/null 2>&1
           sentieon plot InsertSizeMetricAlgo \
-            -o "$local_metrics_dir/${sample_name}_is_metrics.pdf" "$local_metrics_dir/${sample_name}_is_metrics.txt"
+            -o "$local_metrics_dir/${sample_name}_is_metrics.pdf" "$local_metrics_dir/${sample_name}_is_metrics.txt" >/dev/null 2>&1
         
           duration=$((SECONDS - start_time))
           echo "Metrics generated in $duration seconds"
