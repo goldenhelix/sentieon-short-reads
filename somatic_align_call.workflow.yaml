@@ -1,5 +1,5 @@
 name: Somatic Alignment and Variant Calling
-description: Perform alignment and variant calling with BWA-MEM and DNAscope
+description: Perform alignment and variant calling with BWA-MEM and TNscope
 stages:
   - name: Alignment with BWA-MEM
     description: Align FASTQ files with BWA-MEM
@@ -10,16 +10,17 @@ stages:
       label: FASTQ Base Folder
       path:
         type: directory
-      glob_ex: '*/*_*R1*.f*q.gz'
+      glob_ex: '**/*_*.f*q.gz'
       output_parameters:
         - task_parameter_name: input_folder
-          expression: '${1}'
+          expression: '${file_directory}'
         - task_parameter_name: sample_name
           expression: '${2}'
       
     task_parameters:
       - name: output_folder 
         label: Output Folder
+        help: "The output folder for the resulting alignment files, VCFs, and (optional) metrics files."
         type: directory
 
       - name: ref_fasta
@@ -30,6 +31,7 @@ stages:
       - name: ml_model
         label: ML Model
         type: stage
+        help: "The ML model to use for Sentieon's alignment and variant calling.\nOnly Ultima Genomics WGS is supported for somatic data."
         stage_parameter_expression: "None"
         value: "None"
 
