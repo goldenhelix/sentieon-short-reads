@@ -5,18 +5,30 @@ parameters:
   - name: sample_name
     label: Sample Name
     type: string
+    help: "The name of the sample to be used in the output VCF file (must match sample name in alignment file)."
 
-  - name: input_file
-    label: Input Alignment File
+  - name: input_tumor
+    label: Input Alignment File for Tumor Sample
     type: file
     pattern_match:
       - "*.bam"
       - "*.cram"
     create: false
+    help: "The input alignment file for the tumor sample."
+
+  - name: input_normal
+    label: Input Alignment File for Normal Sample (Optional)
+    type: file
+    pattern_match:
+      - "*.bam"
+      - "*.cram"
+    create: false
+    help: "The input alignment file for the normal sample. If not provided, the workflow will run in tumor-only mode."
 
   - name: output_folder
     label: Output Folder
     type: directory
+    help: "The output folder for the resulting VCF files."
 
   - name: ref_fasta
     label: Reference File (FASTA)
@@ -44,12 +56,21 @@ steps:
         num_threads=$AGENT_CPU_CORES
         workdir="/scratch"
 
+        # Check for tumor-only mode
+        tumor_only=false
+        if [ -z "$input_normal" ]; then
+            tumor_only=true
+        fi
+
         # Construct output VCF file name
-        output_vcf="${output_folder}/${sample_name}_tnscope.vcf.gz"
+        tumor_vcf="${output_folder}/${sample_name}_tumor_tnscope.vcf.gz"
+        if [ "$tumor_only" = false ]; then
+            normal_vcf="${output_folder}/${sample_name}_normal_dnascope.vcf.gz"
+        fi
 
         # Check if the output VCF already exists
-        if [ -f "$output_vcf" ]; then
-            echo "Output VCF already exists: $output_vcf"
+        if [ -f "$tumor_vcf" ]; then
+            echo "Output VCF already exists: $tumor_vcf"
             exit 0
         fi
 
