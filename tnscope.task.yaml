@@ -2,10 +2,15 @@ name: Tumor Variant Calling with TNScope
 description: Variant calling from an alignment file with Sentieon's TNScope algorithm
 
 parameters:
-  - name: sample_name
-    label: Sample Name
+  - name: tumor_sample_name
+    label: Tumor Sample Name
     type: string
-    help: "The name of the sample to be used in the output VCF file (must match sample name in alignment file)."
+    help: "The name of the tumor sample to be used in the output VCF file (must match sample name in alignment file)."
+
+  - name: normal_sample_name
+    label: Normal Sample Name
+    type: string
+    help: "The name of the normal sample to be used in the output VCF file (must match sample name in alignment file)."
 
   - name: input_tumor
     label: Input Alignment File for Tumor Sample
@@ -63,9 +68,9 @@ steps:
         fi
 
         # Construct output VCF file name
-        tumor_vcf="${output_folder}/${sample_name}_tumor_tnscope.vcf.gz"
+        tumor_vcf="${output_folder}/${tumor_sample_name}_tumor_tnscope.vcf.gz"
         if [ "$tumor_only" = false ]; then
-            normal_vcf="${output_folder}/${sample_name}_normal_dnascope.vcf.gz"
+            normal_vcf="${output_folder}/${normal_sample_name}_normal_dnascope.vcf.gz"
         fi
 
         # Check if the output VCF already exists
@@ -77,7 +82,7 @@ steps:
         # Create output folder if it doesn't exist
         mkdir -p "$output_folder" || { echo "Failed to create output directory"; exit 1; }
         cd "$workdir" || { echo "Failed to change to output directory"; exit 1; }
-        logfile=${sample_name}_tnscope_run.log
+        logfile=${tumor_sample_name}_tnscope_run.log
         exec > >(tee -a "$logfile") 2>&1 || { echo "Failed to redirect stdout and stderr to $logfile"; exit 1; }
 
         # Copy input files to workdir for better performance
@@ -86,26 +91,46 @@ steps:
         cp "$input_file" . || { echo "Failed to copy tumor files to workdir"; exit 1; }
 
         # Print info
-        echo "*************************"
-        echo "Running TNscope variant calling..."
-        echo "Tumor file:    $input_file"
-        echo "Output folder: $output_folder"
-        echo "CPU Cores:     $AGENT_CPU_CORES"
-        echo "Memory:        $AGENT_MEMORY_GB GB"
-        echo "*************************"
+        if [ $tumor_only = false ]; then  
+            echo "*************************"
+            echo "Running TNscope variant calling in tumor-normal mode..."
+            echo "Tumor file:    $input_file"
+            echo "Normal file:   $input_normal"
+            echo "Output folder: $output_folder"
+            echo "CPU Cores:     $AGENT_CPU_CORES"
+            echo "Memory:        $AGENT_MEMORY_GB GB"
+            echo "*************************"
+        else
+            echo "*************************"
+            echo "Running TNscope variant calling in tumor-only mode..."
+            echo "Tumor file:    $input_file"
+            echo "Output folder: $output_folder"
+            echo "CPU Cores:     $AGENT_CPU_CORES"
+            echo "*************************"
+        fi
 
         start_time=$SECONDS
 
+        # Run DNAscope for normal sample if present
+        if [ $tumor_only = false ]; then
+            sentieon driver -r "$ref_fasta" -t $num_threads -i "$input_normal" --temp_dir "$workdir" \
+                --algo DNAscope \
+                "${normal_vcf}" || \
+                { echo "DNAscope variant calling failed"; exit 1; }
+        fi
+
         # Run TNscope variant calling
         sentieon driver -t $num_threads -r "$ref_fasta" \
-            -i "$input_file" \
+            -i "$input_tumor" \
+            -i "$input_normal" \
             --temp_dir "$workdir" \
             --algo TNscope \
             --disable_detector sv \
-            --tumor_sample "$sample_name" \
+            --tumor_sample "$tumor_sample_name" \
+            --normal_sample "$normal_sample_name" \
             "$output_vcf" || { echo "TNscope variant calling failed"; exit 1; }
 
         duration=$((SECONDS - start_time))
         file_size=$(stat -c%s "$output_vcf")
-        echo "${sample_name}_tnscope.vcf.gz ($file_size bytes) called in $duration seconds"
-        cp -f ${sample_name}_tnscope_run.log "$output_folder"/
+        echo "${tumor_sample_name}_tnscope.vcf.gz ($file_size bytes) called in $duration seconds"
+        cp -f ${tumor_sample_name}_tnscope_run.log "$output_folder"/
