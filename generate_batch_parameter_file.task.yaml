@@ -1,0 +1,57 @@
+name: Generate Batch Parameter File
+description: Generate a batch parameter file for Sentieon's TNScope algorithm
+auto_generate_session_for_account: "{workspaceBot}"
+
+parameters:
+  - name: input_folder
+    label: Input Folder
+    type: directory
+    help: "The input folder for the resulting alignment files, VCFs, and (optional) metrics files."
+
+agent_requirements:
+  cpu_cores: 1
+  memory_gb: 1
+
+steps:
+  - name: generate_batch_parameter_file
+    description: Generate a batch parameter file
+    type: cmd
+    docker:
+      image: ${VSPIPELINE_DOCKER_IMAGE}
+    args:
+      - |-
+        set -eu pipefail
+
+        # Create output file
+        output_file="${input_folder}/batch_parameters.tsv"
+        echo "tumor_sample_name,normal_sample_name,input_tumor,input_normal" > "$output_file"
+
+        # Find sample names in input folder by parsing VCF headers
+        sample_names=$(for vcf in "$input_folder"/*.vcf.gz; do
+            zcat "$vcf" | grep "^#CHROM" | awk -F'\t' '{for(i=10;i<=NF;i++) print $i}'
+        done | sort -u)
+
+        # Look up samples in sample catalog
+        for sample_name in $sample_names; do
+
+            # Check if sample is in catalog 
+            echo "Looking up sample: $sample_name...."
+            echo "Running query Sample:eq:$sample_name"
+            
+            # Check if sample is a tumor sample
+            tumor_sample=$(gautil client catalog-export SampleCatalog Sample:eq:"$sample_name" --fields="Tumor" | tail -n 1)
+            case $tumor_sample in
+                "")
+                    echo "Sample $sample_name not found in catalog"
+                    echo "Skipping sample"
+                    continue
+                "Tumor")
+                    echo "Sample $sample_name is a tumor sample"
+                    ;;
+                "Normal")
+                    echo "Sample $sample_name is a normal sample"
+                    ;;
+            esac
+        done
+
+
