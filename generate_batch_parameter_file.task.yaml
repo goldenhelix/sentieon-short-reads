@@ -23,13 +23,14 @@ steps:
         set -eu pipefail
 
         # Create output file
-        output_file="${input_folder}/batch_parameters.tsv"
+        output_file="${input_folder}/batch_parameters.csv"
         echo "tumor_sample_name,normal_sample_name,input_tumor,input_normal" > "$output_file"
 
-        # Find sample names in input folder by parsing VCF headers
-        sample_names=$(for vcf in "$input_folder"/*.vcf.gz; do
-            zcat "$vcf" | grep "^#CHROM" | awk -F'\t' '{for(i=10;i<=NF;i++) print $i}'
-        done | sort -u)
+        # Find sample names from BAM/CRAM files by taking the prefix before first underscore
+        sample_names=$(find "$input_folder" -maxdepth 1 -type f \( -name "*.bam" -o -name "*.cram" \) | 
+            while read -r file; do
+                basename "$file" | cut -d'_' -f1
+            done | sort -u)
 
         # Look up samples in sample catalog
         for sample_name in $sample_names; do

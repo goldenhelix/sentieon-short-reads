@@ -45,11 +45,24 @@ stages:
         type: boolean
         value: "true"
 
+  - name: Generate Batch Parameter File
+    description: Generate a batch parameter file for the alignment and variant calling workflow
+    task_path: generate_batch_parameter_file.task.yaml
+    depends_on:
+      - Alignment with BWA-MEM
+    
+    task_parameters:
+      - name: input_folder
+        label: Input Folder
+        type: stage
+        stage: Alignment with BWA-MEM
+        stage_parameter_expression: ${output_folder}
+  
   - name: Variant Calling with TNscope
     description: Variant calling from an alignment file with Sentieon's DNAscope algorithm
     task_path: tnscope.task.yaml
     depends_on:
-      - Alignment with BWA-MEM
+      - Generate Batch Parameter File
     
     glob_parameter:
       label: Alignment Folder
