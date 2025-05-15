@@ -39,19 +39,48 @@ steps:
             echo "Running query Sample:eq:$sample_name"
             
             # Check if sample is a tumor sample
-            tumor_sample=$(gautil client catalog-export SampleCatalog Sample:eq:"$sample_name" --fields="Tumor" | tail -n 1)
-            case $tumor_sample in
+            tumor_sample=$(gautil client catalog-export SampleCatalog Sample:eq:"$sample_name" --fields="Tumor" | tail -n 1 | tr -d '\r\n\t ')
+            
+            case "$tumor_sample" in
                 "")
                     echo "Sample $sample_name not found in catalog"
                     echo "Skipping sample"
                     continue
+                    ;;
                 "Tumor")
-                    echo "Sample $sample_name is a tumor sample"
+                    echo "Sample $sample_name is a tumor sample; adding to batch parameter file"
                     ;;
                 "Normal")
-                    echo "Sample $sample_name is a normal sample"
+                    echo "Sample $sample_name is a normal sample; skipping sample"
+                    continue
+                    ;;
+                *)
+                    echo "Sample $sample_name is not a tumor or normal sample"
+                    echo "Skipping sample"
+                    continue
                     ;;
             esac
+
+            # Add sample to batch parameter file
+            sample_bam=$(find "$input_folder" -maxdepth 1 -type f \( -name "${sample_name}_*.bam" -o -name "${sample_name}_*.cram" \) | head -n 1)
+            
+            if [ -z "$sample_bam" ]; then
+                echo "No BAM/CRAM file found for sample $sample_name"
+                continue
+            fi
+            echo "Found BAM/CRAM file: $sample_bam"
+
+            # First, look up normal sample
+            normal_sample_name="$(gautil client catalog-export SampleCatalog Sample:eq:"$sample_name" --fields="Normal Sample" | tail -n 1 | tr -d '\r\n\t ')"
+            if [ -z "$normal_sample_name" ]; then
+                echo "No matched normal sample found for $sample_name"
+                echo "$sample_name,,$sample_bam," >> "$output_file"
+            else
+                normal_sample_bam=$(find "$input_folder" -maxdepth 1 -type f \( -name "${normal_sample_name}_*.bam" -o -name "${normal_sample_name}_*.cram" \) | head -n 1)
+                echo "Found normal sample: $normal_sample_name"
+                echo "$sample_name,$normal_sample_name,$sample_bam,$normal_sample_bam" >> "$output_file"
+            fi
+
         done
 
 
