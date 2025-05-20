@@ -111,23 +111,15 @@ steps:
 
         start_time=$SECONDS
 
-        # Run DNAscope for normal sample if present
-        if [ $tumor_only = false ]; then
-            sentieon driver -r "$ref_fasta" -t $num_threads -i "$input_normal" --temp_dir "$workdir" \
-                --algo DNAscope \
-                "${normal_vcf}" || \
-                { echo "DNAscope variant calling failed"; exit 1; }
-        fi
-
         # Run TNscope variant calling
         sentieon driver -t $num_threads -r "$ref_fasta" \
             -i "$input_tumor" \
-            -i "$input_normal" \
+            ${input_normal:+-i "$input_normal"} \
             --temp_dir "$workdir" \
             --algo TNscope \
             --disable_detector sv \
             --tumor_sample "$tumor_sample_name" \
-            --normal_sample "$normal_sample_name" \
+            ${input_normal:+--normal_sample "$normal_sample_name"} \
             "$output_vcf" || { echo "TNscope variant calling failed"; exit 1; }
 
         duration=$((SECONDS - start_time))

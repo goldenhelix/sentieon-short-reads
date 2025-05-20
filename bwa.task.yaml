@@ -82,13 +82,20 @@ steps:
     description: Run BWA-MEM
     type: cmd
     docker:
-      image: registry.goldenhelix.com/public/sentieon:202503
+      image: registry.goldenhelix.com/public/sentieon:latest
     args:
       - |-
         set -eu pipefail
 
         # License configuration
         export SENTIEON_LICENSE="$GH_SERVER:8990"
+        licsrvr=$(sentieon licclnt ping --server "$GH_SERVER:8990")
+        # if [ "$licsrvr" != "0" ]; then
+        #   echo "License server not responding"
+        #   exit 1
+        # else 
+        #   echo "License server responding"
+        # fi
 
         # Agent setup
         echo "*************************"

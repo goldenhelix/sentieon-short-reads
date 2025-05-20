@@ -63,6 +63,14 @@ stages:
     task_path: tnscope.task.yaml
     depends_on:
       - Generate Batch Parameter File
+
+    batch_file_parameter:
+      path:
+        base_path:
+          type: stage
+          stage: Alignment with BWA-MEM
+          parameter: "${output_folder}" # or ${batch_parameter_file}
+        file: "batch_parameters.csv"
     
     glob_parameter:
       label: Alignment Folder
