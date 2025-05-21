@@ -92,3 +92,8 @@ stages:
         type: stage
         stage: Alignment with BWA-MEM
         stage_parameter_expression: "${ref_fasta}"
+
+      - name: copy_fasta_to_workdir
+        label: Copy Reference FASTA to Working Directory 
+        type: boolean
+        stage_parameter_expression: "false"
