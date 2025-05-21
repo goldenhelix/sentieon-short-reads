@@ -68,11 +68,7 @@ steps:
         fi
 
         # Construct output VCF file name
-        tumor_vcf="${output_folder}/${tumor_sample_name}_tumor_tnscope.vcf.gz"
-        if [ "$tumor_only" = false ]; then
-            normal_vcf="${output_folder}/${normal_sample_name}_normal_dnascope.vcf.gz"
-        fi
-
+        tumor_vcf="${output_folder}/${tumor_sample_name}_tnscope.vcf.gz"
         # Check if the output VCF already exists
         if [ -f "$tumor_vcf" ]; then
             echo "Output VCF already exists: $tumor_vcf"
