@@ -89,35 +89,35 @@ steps:
             ;;
 
           "Illumina WES 2.1")
-            model_path="$model_base_path/DNAscopeIlluminaWES2.1.bundle"
+            model_path="${model_base_path}/DNAscopeIlluminaWES2.1.bundle"
             ;;
 
           "Illumina WGS 2.2")
-            model_path="$model_base_path/SentieonIlluminaWGS2.2.bundle"
+            model_path="${model_base_path}/SentieonIlluminaWGS2.2.bundle"
             ;;
 
           "Element Biosciences WGS 2.0")
-            model_path="$model_base_path/DNAscopeElementBioWGS2.0.bundle"
+            model_path="${model_base_path}/DNAscopeElementBioWGS2.0.bundle"
             ;;
 
           "MGI WES 2.0")
-            model_path="$model_base_path/DNAscopeMGIWES2.0.bundle"
+            model_path="${model_base_path}/DNAscopeMGIWES2.0.bundle"
             ;;
 
           "MGI WGS 2.0")
-            model_path="$model_base_path/DNAscopeMGIWGS2.0.bundle"
+            model_path="${model_base_path}/DNAscopeMGIWGS2.0.bundle"
             ;;
 
           "Salus WES 1.0")
-            model_path="$model_base_path/DNAscopeSalusWES1.0.bundle"
+            model_path="${model_base_path}/DNAscopeSalusWES1.0.bundle"
             ;;
 
           "Salus WGS 1.0")
-            model_path="$model_base_path/DNAscopeSalusWGS1.0.bundle"
+            model_path="${model_base_path}/DNAscopeSalusWGS1.0.bundle"
             ;;
 
           "Ultima Genomics WGS 1.0")
-            model_path="$model_base_path/SentieonUltima1.0.bundle"
+            model_path="${model_base_path}/SentieonUltima1.0.bundle"
             ;;
 
           *)
@@ -138,6 +138,12 @@ steps:
         echo "Available space in workdir: $(df -h /scratch | awk 'NR==2 {print $4}')"
         input_basename=$(basename "$input_file")
         cp "$input_file"* . || { echo "Failed to copy input files to workdir"; exit 1; }
+
+        # Copy reference FASTA locally for better performance
+        echo "Copying reference FASTA to workdir..."
+        cp "$ref_fasta" . || { echo "Failed to copy reference FASTA"; exit 1; }
+        cp "$ref_fasta".fai . || { echo "Failed to copy reference FASTA index"; exit 1; }
+        local_ref_fasta=$(basename "$ref_fasta")
 
         # Construct extra parameters based on settings
         extra_params=""
@@ -167,17 +173,17 @@ steps:
         start_time=$SECONDS
 
         if [[ ! -z "$model_path" ]]; then
-          sentieon driver -r "$ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
+          sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
             --algo DNAscope --model "$model_path/dnascope.model" $extra_params \
             "${sample_name}_dnascope_tmp.$output_suffix" || \
             { echo "DNAscope variant calling failed"; exit 1; }
 
-          sentieon driver -r "$ref_fasta" -t $num_threads --temp_dir "$workdir" \
+          sentieon driver -r "$local_ref_fasta" -t $num_threads --temp_dir "$workdir" \
             --algo DNAModelApply --model "$model_path/dnascope.model" \
             -v "${sample_name}_dnascope_tmp.$output_suffix" "${output_folder}/${sample_name}_dnascope.$output_suffix" || \
             { echo "DNAModelApply failed"; exit 1; }
         else
-          sentieon driver -r "$ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
+          sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
             --algo DNAscope $extra_params \
             "${output_folder}/${sample_name}_dnascope.$output_suffix" || \
             { echo "DNAscope variant calling failed"; exit 1; }

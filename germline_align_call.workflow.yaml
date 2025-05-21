@@ -10,10 +10,10 @@ stages:
       label: FASTQ Base Folder
       path:
         type: directory
-      glob_ex: '*/*-*R1_001.fastq.gz'
+      glob_ex: '**/*_*.f*q.gz'
       output_parameters:
         - task_parameter_name: input_folder
-          expression: '${1}'
+          expression: '${file_directory}'
         - task_parameter_name: sample_name
           expression: '${2}'
       
@@ -21,6 +21,12 @@ stages:
       - name: output_folder 
         label: Output Folder
         type: directory
+
+      - name: model_base_path
+        label: Sentieon Models Base Path
+        group: Advanced Options
+        type: directory
+        value: "CloudStorage/resources/sentieon_models"
 
       - name: ml_model
         value: "None"
@@ -53,7 +59,7 @@ stages:
         type: stage
         stage: Alignment with BWA-MEM
         parameter: output_folder
-      glob_ex: '*/*_*.bam'
+      glob_ex: '**/*_*.bam'
       output_parameters:
         - task_parameter_name: input_file
           expression: '${0}'
@@ -66,6 +72,13 @@ stages:
         type: stage
         stage: Alignment with BWA-MEM
         stage_parameter_expression: "${output_folder}"
+
+      - name: model_base_path
+        label: Sentieon Models Base Path
+        group: Advanced Options
+        type: stage
+        stage: Alignment with BWA-MEM
+        stage_parameter_expression: "${model_base_path}"
 
       - name: ml_model
         label: Machine Learning Model
