@@ -69,21 +69,8 @@ stages:
         base_path:
           type: stage
           stage: Alignment with BWA-MEM
-          parameter: "${output_folder}" # or ${batch_parameter_file}
+          parameter: output_folder
         file: "batch_parameters.csv"
-    
-    glob_parameter:
-      label: Alignment Folder
-      path:
-        type: stage
-        stage: Alignment with BWA-MEM
-        parameter: output_folder
-      glob_ex: '*/*_*.bam'
-      output_parameters:
-        - task_parameter_name: input_file
-          expression: '${0}'
-        - task_parameter_name: sample_name
-          expression: "${2}"
 
     task_parameters:
       - name: output_folder

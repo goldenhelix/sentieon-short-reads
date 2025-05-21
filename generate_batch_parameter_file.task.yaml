@@ -64,22 +64,25 @@ steps:
 
             # Add sample to batch parameter file
             sample_bam=$(find "$input_folder" -maxdepth 1 -type f \( -name "${sample_name}_*.bam" -o -name "${sample_name}_*.cram" \) | head -n 1)
-            
+            sample_abs=$(echo "$sample_bam" | sed "s|^$WORKSPACE_DIR||")
+
             if [ -z "$sample_bam" ]; then
                 echo "No BAM/CRAM file found for sample $sample_name"
                 continue
             fi
-            echo "Found BAM/CRAM file: $sample_bam"
+            echo "Found BAM/CRAM file: $sample_abs"
 
             # First, look up normal sample
-            normal_sample_name="$(gautil client catalog-export SampleCatalog Sample:eq:"$sample_name" --fields="Normal Sample" | tail -n 1 | tr -d '\r\n\t ')"
+            normal_sample_name="$(gautil client catalog-export SampleCatalog Sample:eq:"$sample_name" --fields="NormalSample" | tail -n 1 | tr -d '\r\n\t ')"
             if [ -z "$normal_sample_name" ]; then
                 echo "No matched normal sample found for $sample_name"
-                echo "$sample_name,,$sample_bam," >> "$output_file"
+                echo "$sample_name,,$sample_abs," >> "$output_file"
             else
                 normal_sample_bam=$(find "$input_folder" -maxdepth 1 -type f \( -name "${normal_sample_name}_*.bam" -o -name "${normal_sample_name}_*.cram" \) | head -n 1)
+                normal_sample_abs=$(echo "$normal_sample_bam" | sed "s|^$WORKSPACE_DIR||")
                 echo "Found normal sample: $normal_sample_name"
-                echo "$sample_name,$normal_sample_name,$sample_bam,$normal_sample_bam" >> "$output_file"
+                echo "Found normal BAM/CRAM file: $normal_sample_abs"
+                echo "$sample_name,$normal_sample_name,$sample_abs,$normal_sample_abs" >> "$output_file"
             fi
 
         done

@@ -88,13 +88,16 @@ steps:
         # Copy input files to workdir for better performance
         echo "Copying input files to workdir..."
         echo "Available space in workdir: $(df -h /scratch | awk 'NR==2 {print $4}')"
-        cp "$input_file" . || { echo "Failed to copy tumor files to workdir"; exit 1; }
+        cp "$input_tumor" . || { echo "Failed to copy tumor files to workdir"; exit 1; }
+        if [ $tumor_only = false ]; then
+            cp "$input_normal" . || { echo "Failed to copy normal files to workdir"; exit 1; }
+        fi
 
         # Print info
         if [ $tumor_only = false ]; then  
             echo "*************************"
             echo "Running TNscope variant calling in tumor-normal mode..."
-            echo "Tumor file:    $input_file"
+            echo "Tumor file:    $input_tumor"
             echo "Normal file:   $input_normal"
             echo "Output folder: $output_folder"
             echo "CPU Cores:     $AGENT_CPU_CORES"
@@ -103,7 +106,7 @@ steps:
         else
             echo "*************************"
             echo "Running TNscope variant calling in tumor-only mode..."
-            echo "Tumor file:    $input_file"
+            echo "Tumor file:    $input_tumor"
             echo "Output folder: $output_folder"
             echo "CPU Cores:     $AGENT_CPU_CORES"
             echo "*************************"
@@ -120,9 +123,9 @@ steps:
             --disable_detector sv \
             --tumor_sample "$tumor_sample_name" \
             ${input_normal:+--normal_sample "$normal_sample_name"} \
-            "$output_vcf" || { echo "TNscope variant calling failed"; exit 1; }
+            "$tumor_vcf" || { echo "TNscope variant calling failed"; exit 1; }
 
         duration=$((SECONDS - start_time))
-        file_size=$(stat -c%s "$output_vcf")
+        file_size=$(stat -c%s "$tumor_vcf")
         echo "${tumor_sample_name}_tnscope.vcf.gz ($file_size bytes) called in $duration seconds"
         cp -f ${tumor_sample_name}_tnscope_run.log "$output_folder"/
