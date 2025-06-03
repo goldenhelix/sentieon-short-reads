@@ -7,7 +7,7 @@ This repository contains workflows for short-read genomic analysis using Sentieo
 This repository focuses exclusively on short-read analysis workflows and includes:
 
 1. Germline analysis workflow that combines alignment and variant calling
-2. Somatic analysis task for tumor-normal paired samples
+2. Somatic analysis task for tumor-normal paired samples or tumor-only samples
 
 ## Germline Analysis
 
@@ -24,7 +24,7 @@ This workflow is designed to process samples from a directory structure where FA
 
 - **Output Folder**: Directory where results will be stored
 - **Machine Learning Model**: Model to use for variant calling (default: None)
-- **Reference File**: FASTA file for alignment and variant calling (default: hg38)
+- **Reference File**: FASTA file for alignment and variant calling (default: hg38); defaults to workspace 
 
 ### BWA-MEM Alignment Task
 
@@ -43,7 +43,7 @@ The `bwa.task.yaml` file defines a task that performs alignment using Sentieon's
 - **Sample Name**: Identifier for the sample
 - **Input Folder**: Directory containing FASTQ files
 - **Output Folder**: Directory for alignment results
-- **Reference File**: FASTA file for alignment
+- **Reference File**: FASTA file for alignment (defaults to workspace reference if not provided)
 - **Machine Learning Model**: Platform-specific model for optimization
 - **Advanced Options**:
   - Use Sample Name as Prefix Filter
@@ -68,7 +68,7 @@ The `dnascope.task.yaml` file defines a task that performs variant calling using
 - **Sample Name**: Identifier for the sample
 - **Input File**: BAM or CRAM file from alignment
 - **Output Folder**: Directory for variant calling results
-- **Reference File**: FASTA file for variant calling
+- **Reference File**: FASTA file for variant calling (defaults to workspace default if not provided)
 - **Machine Learning Model**: Platform-specific model for optimization
 - **Advanced Options**:
   - PCR Free Sample
@@ -92,7 +92,7 @@ The `tnscope.task.yaml` file defines a task that performs somatic variant callin
 - **Tumor Sample Alignments**: BAM or CRAM file for the tumor sample
 - **Normal Sample Alignments**: BAM or CRAM file for the matched normal sample
 - **Output Folder**: Directory for variant calling results
-- **Reference File**: FASTA file for variant calling
+- **Reference File**: FASTA file for variant calling (defaults to workspace default if not provided)
 
 ## Usage
 
