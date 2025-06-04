@@ -26,8 +26,8 @@ stages:
       - name: ref_fasta
         label: Reference File (FASTA)
         type: file
-        value: "CloudStorage/resources/hg38_noalt/GCA_000001405.15_GRCh38_no_alt_analysis_set_maskedGRC_exclusions_v2.fasta"
-
+        optional: true  
+        
       - name: ml_model
         label: ML Model
         type: stage

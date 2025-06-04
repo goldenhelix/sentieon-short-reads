@@ -18,7 +18,7 @@ parameters:
   - name: ref_fasta
     label: Reference File (FASTA)
     type: file
-    value: "CloudStorage/resources/hg38_noalt/GCA_000001405.15_GRCh38_no_alt_analysis_set_maskedGRC_exclusions_v2.fasta"
+    optional: true
     
   - name: ml_model
     value: "None"
@@ -64,7 +64,7 @@ parameters:
     label: Sentieon Models Base Path
     group: Advanced Options 
     type: directory
-    value: "CloudStorage/resources/sentieon_models"
+    optional: true
 
   - name: input_bases_per_batch
     label: Input Bases Per Batch (For Reproducibility)
@@ -73,8 +73,8 @@ parameters:
     value: "10000000"
 
 agent_requirements:
-  cpu_cores: 32
-  memory_gb: 64
+  cpu_cores: 16
+  memory_gb: 32
   # agent_profile: azure_extra_large
 
 steps:
@@ -118,6 +118,28 @@ steps:
 
         # Define metrics directory path
         metrics_dir="${output_folder}/${sample_name}_metrics"
+
+        echo "Selecting reference file..."
+        if [ -z "$ref_fasta" ]; then 
+          echo "No reference file provided, using default reference file..."
+          ref_fasta="$WORKSPACE_DIR/${RESOURCES_PATH}/${REFERENCE_PATH}"
+          if [ ! -f "$ref_fasta" ]; then
+            echo "The default reference file does not exist at $ref_fasta"
+            echo "Please run the task Download Genomic Reference to download the reference and then re-run this task"
+            exit 1
+          fi
+        fi
+
+        echo "Selecting model base path..."
+        if [ -z "$model_base_path" ]; then
+          echo "No model base path provided, using default model base path..."
+          model_base_path="$WORKSPACE_DIR/${RESOURCES_PATH}/sentieon_models"
+          if [ ! -d "$model_base_path" ]; then
+            echo "The default model base path does not exist at $model_base_path"
+            echo "Please run the task Download Sentieon Models to download the models and then re-run this task"
+            exit 1
+          fi
+        fi
 
         echo "Selecting model file..."
 

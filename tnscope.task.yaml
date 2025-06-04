@@ -38,7 +38,7 @@ parameters:
   - name: ref_fasta
     label: Reference File (FASTA)
     type: file
-    value: "CloudStorage/resources/hg38_noalt/GCA_000001405.15_GRCh38_no_alt_analysis_set_maskedGRC_exclusions_v2.fasta"
+    optional: true
 
 agent_requirements:
   cpu_cores: 8
@@ -65,6 +65,16 @@ steps:
         tumor_only=false
         if [ -z "$input_normal" ]; then
             tumor_only=true
+        fi
+
+        # Select reference file
+        if [ -z "$ref_fasta" ]; then
+            ref_fasta="$WORKSPACE_DIR/${RESOURCES_PATH}/${REFERENCE_PATH}"
+            if [ ! -f "$ref_fasta" ]; then
+                echo "The default reference file does not exist at $ref_fasta"
+                echo "Please run the task Download Genomic Reference to download the reference and then re-run this task"
+                exit 1
+            fi
         fi
 
         # Construct output VCF file name

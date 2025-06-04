@@ -26,7 +26,7 @@ stages:
         label: Sentieon Models Base Path
         group: Advanced Options
         type: directory
-        value: "CloudStorage/resources/sentieon_models"
+        optional: true
 
       - name: ml_model
         value: "None"
@@ -40,7 +40,7 @@ stages:
       - name: ref_fasta
         label: Reference File (FASTA)
         type: file
-        value: "CloudStorage/resources/hg38_noalt/GCA_000001405.15_GRCh38_no_alt_analysis_set_maskedGRC_exclusions_v2.fasta"
+        optional: true
 
       - name: use_prefix
         label: Use Sample Name as Prefix Filter
