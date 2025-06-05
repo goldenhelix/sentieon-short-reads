@@ -6,11 +6,6 @@ agent_requirements:
   memory_gb: 1
 
 parameters: 
-  - name: target_directory
-    label: Base Folder
-    type: directory
-    value: CloudStorage
-    
   - name: download_hg38_noalt
     label: GRCh38 No Alt Reference
     help: GRCh38 reference that masks the erroneous copy of the duplicated genes and contains no alternate contigs
@@ -45,6 +40,14 @@ parameters:
     group: Model Files
     type: boolean
     value: "false"
+
+  - name: target_directory
+    label: Base Folder
+    type: directory
+    optional: true
+    group: Advanced Options
+    help: Defaults to the directory specified by RESOURCES_PATH in Workspace Settings
+  
 steps:
   - name: download_ref
     description: Download Ref
@@ -128,6 +131,15 @@ steps:
 
         # Set the base target directory
         BASE_DIR="${target_directory}"
+
+        if [ -z "$BASE_DIR" ]; then 
+          BASE_DIR="$WORKSPACE_DIR/${RESOURCES_PATH}"
+          if [ ! -d "$BASE_DIR" ]; then
+            echo "The default resource path does not exist or is not a valid directory at $RESOURCES_PATH"
+            echo "Please update the RESOURCES_PATH in Workspace Settings to point to a valid directory that can be used to download the reference and then re-run this task"
+            exit 1
+          fi
+        fi
 
         echo "Starting reference resources download..."
         echo "Base directory: $BASE_DIR"

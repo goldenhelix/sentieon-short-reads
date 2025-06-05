@@ -2,6 +2,12 @@
 
 This repository contains workflows for short-read genomic analysis using Sentieon's genomics tools. For detailed information about Sentieon's tools and algorithms, please refer to the [Sentieon Manual](https://support.sentieon.com/manual/).
 
+## Prerequisite
+
+Run the **Download Genomic Reference Resources** task to download and prepare the required local reference sequence and model files. These resources must be available on your system before running any of the workflows.
+
+Before downloading, use [Workspace Settings](./manage/settings) to specify the target location with the `RESOURCE_PATH` variable.
+
 ## Overview
 
 This repository focuses exclusively on short-read analysis workflows and includes:
@@ -18,13 +24,13 @@ The `germline_align_call.workflow.yaml` file defines a workflow that performs tw
 1. **Alignment with BWA-MEM**: Aligns FASTQ files to a reference genome
 2. **Variant Calling with DNAscope**: Calls variants from the aligned BAM files
 
-This workflow is designed to process samples from a directory structure where FASTQ files follow the pattern `*/*-*R1_001.fastq.gz` and automatically extracts sample names from the file paths.
+This workflow is designed to process samples from a directory structure where FASTQ files follow the pattern `*_*.fastq.gz` or `*_*.fq.gz` where the sample name is the characters up to the first `_`. All files with this prefix will be aligned together, supporting the reads being spread across multiple latest (i.e. L001, L002 etc).
 
 #### Workflow Parameters
 
 - **Output Folder**: Directory where results will be stored
 - **Machine Learning Model**: Model to use for variant calling (default: None)
-- **Reference File**: FASTA file for alignment and variant calling (default: hg38); defaults to workspace 
+- **Reference File**: FASTA file for alignment and variant calling; defaults to variables `${RESOURCES_PATH}/${REFERENCE_PATH}` set in the workspace settings
 
 ### BWA-MEM Alignment Task
 
@@ -76,30 +82,29 @@ The `dnascope.task.yaml` file defines a task that performs variant calling using
 
 ## Somatic Analysis
 
-### Tumor-Normal Variant Calling Task
+The **Somatic Alignment and Variant Calling** workflow (`somatic_align_call.workflow.yaml`) performs both alignment and variant calling for somatic samples. The alignment step treats every sample independently, generating BAM/CRAM files for each. The workflow then relies on the relationship between tumor and normal samples as defined in the workspace **SampleCatalog**. 
 
-The `tnscope.task.yaml` file defines a task that performs somatic variant calling using Sentieon's TNScope algorithm.
+A dedicated step in the workflow generates a manifest (batch parameter file) that pairs tumor samples with their matched normal samples based on the SampleCatalog. If a tumor sample does not have a normal sample specified in the SampleCatalog, it will be processed in tumor-only mode for variant calling.
+
+### Somatic Alignment and Variant Calling Workflow
+
+The `somatic_align_call.workflow.yaml` file defines a multi-stage workflow:
+
+1. **Alignment with BWA-MEM**: Aligns each sample's FASTQ files independently.
+2. **Generate Batch Parameter File**: Scans the aligned samples and uses the SampleCatalog to pair tumor and normal samples, creating a manifest for downstream analysis.
+3. **Variant Calling with TNscope**: Performs variant calling using Sentieon's TNScope algorithm, using the manifest to process tumor-normal pairs or tumor-only samples as appropriate.
 
 #### Key Features
 
-- Designed for tumor-normal paired samples
+- Independent alignment of all samples
+- Automatic pairing of tumor and normal samples using SampleCatalog relationships
+- Tumor-only variant calling if no normal sample is specified
 - High sensitivity for detecting somatic variants
 - Optimized for cancer genomics applications
-- Can use BAM/CRAM files produced by the BWA-MEM alignment task
 
-#### Task Parameters
+#### Workflow Parameters
 
-- **Tumor Sample Alignments**: BAM or CRAM file for the tumor sample
-- **Normal Sample Alignments**: BAM or CRAM file for the matched normal sample
-- **Output Folder**: Directory for variant calling results
-- **Reference File**: FASTA file for variant calling (defaults to workspace default if not provided)
-
-## Usage
-
-These workflows and tasks are designed to be run on the Golden Helix server workflow runner. They require a valid Sentieon license configured in the environment.
-
-## Requirements
-
-- Sentieon license
-- Docker with the Sentieon image: `registry.goldenhelix.com/public/sentieon:202503`
-- Sufficient computational resources (CPU cores and memory as specified in each task)
+- **Input Folder**: Directory containing FASTQ files for alignment
+- **Output Folder**: Directory for alignment and variant calling results
+- **Reference File**: FASTA file for alignment and variant calling (defaults to workspace default if not provided)
+- **SampleCatalog**: Used to define tumor/normal relationships

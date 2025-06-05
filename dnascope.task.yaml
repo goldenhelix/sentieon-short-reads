@@ -58,7 +58,7 @@ parameters:
 
 agent_requirements:
   cpu_cores: 16
-  memory_gb: 32
+  memory_gb: 16
 
 steps:
   - name: dnascope
