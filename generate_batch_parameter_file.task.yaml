@@ -8,6 +8,12 @@ parameters:
     type: directory
     help: "The input folder for the resulting alignment files, VCFs, and (optional) metrics files."
 
+  - name: sample_types
+    label: Sample Type
+    type: enum
+    choices: [Somatic, Family]
+    optional: false
+
 agent_requirements:
   cpu_cores: 1
   memory_gb: 1

@@ -31,6 +31,7 @@ stages:
       - name: ml_model
         label: ML Model
         type: stage
+        stage: Alignment with BWA-MEM
         help: "The ML model to use for Sentieon's alignment and variant calling.\nOnly Ultima Genomics WGS is supported for somatic data."
         stage_parameter_expression: "None"
         value: "None"
@@ -38,6 +39,7 @@ stages:
       - name: use_prefix
         label: Use Sample Name as Prefix Filter
         type: stage
+        stage: Alignment with BWA-MEM
         stage_parameter_expression: "true"
 
       - name: perform_dedup
@@ -57,6 +59,13 @@ stages:
         type: stage
         stage: Alignment with BWA-MEM
         stage_parameter_expression: ${output_folder}
+
+      - name: sample_types
+        label: Sample Type
+        type: stage
+        stage: Generate Batch Parameter File
+        stage_parameter_expression: "Somatic"
+        value: "Somatic"
   
   - name: Variant Calling with TNscope
     description: Variant calling from an alignment file with Sentieon's DNAscope algorithm
