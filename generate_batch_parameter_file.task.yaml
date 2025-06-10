@@ -86,6 +86,3 @@ steps:
             fi
 
         done
-        echo batch_parameter_file="${input_folder}/batch_parameters.csv" > results.csv
-
-
