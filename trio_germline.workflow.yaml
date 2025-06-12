@@ -39,6 +39,7 @@ stages:
         label: Reference File (FASTA)
         type: file
         optional: true
+        help: "Optionally specify the reference file to align to. If not provided, the default reference file will be used. Note that the default reference file must be downloaded and set appropriately."
 
       - name: use_prefix
         label: Use Sample Name as Prefix Filter
