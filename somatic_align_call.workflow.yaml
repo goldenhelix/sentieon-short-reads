@@ -47,6 +47,18 @@ stages:
         type: boolean
         value: "true"
 
+      - name: umi_read_structure
+        label: UMI Read Structure
+        type: string
+        optional: true
+        help: "The read structure of the UMI reads. This is used to determine the UMI length and the position of the UMI in the read. If not provided, UMI data will not be extracted."
+        
+      - name: duplex_umi  
+        label: Duplex UMI
+        type: boolean
+        optional: true
+        help: "If enabled, the UMI will be extracted from the duplex reads. If disabled, the UMI will be extracted from the single reads. Ignored if UMI read structure is not provided."
+
   - name: Generate Batch Parameter File
     description: Generate a batch parameter file for the alignment and variant calling workflow
     task_path: generate_batch_parameter_file.task.yaml
