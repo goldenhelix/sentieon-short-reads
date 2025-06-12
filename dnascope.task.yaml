@@ -85,18 +85,18 @@ steps:
         workdir="/scratch"
 
         # Collect parameters
-        if [ -z "$sample_name" ]; then
-          sample_name=$(basename "$input_file" | cut -d '_' -f 1)
-        fi
 
-        pattern=" | "
-        if [[ "$sample_name" =~ "$pattern" ]]; then
-          echo "Sample name should not contain whitespace"
-          exit 1
+        # Parse list of input files by cutting list on commas
+        input_files=(
+          $(echo "$input_file" | tr ',' '\n')
+        )
+        for file in "${input_files[@]}"; do
+          echo "Input file: $file"
+        done
+        # Check if more than one input file is provided and sample name is given
+        if [ ${#input_files[@]} -gt 1 ] && [ ! -z "$sample_name" ]; then
+          echo "Sample name should not be provided for multiple input files, ignoring sample name"
         fi
-
-        # Define metrics directory path
-        metrics_dir="${output_folder}/${sample_name}_metrics"
 
         echo "Selecting reference file..."
         if [ -z "$ref_fasta" ]; then 
@@ -165,75 +165,94 @@ steps:
 
         esac
 
-        echo "Starting analysis for $sample_name..."
+        # Run analysis for each input file
+        for input_file in "${input_files[@]}"; do
 
-        mkdir -p "$output_folder" || { echo "Failed to create output directory"; exit 1; }
-        cd "$workdir" || { echo "Failed to change to output directory"; exit 1; }
-        logfile=${sample_name}_dnascope_run.log
-        exec > >(tee -a "$logfile") 2>&1 || { echo "Failed to redirect stdout and stderr to $logfile"; exit 1; }
+          # Define sample name; check if length of input_files is greater than 1 and sample_name is not provided
+          if [ ${#input_files[@]} -gt 1 ] || [ -z "$sample_name" ]; then
+            sample_name=$(basename "$input_file" | cut -d '_' -f 1)
+          fi
 
-        # Copy input files to workdir for better performance
-        echo "Copying input files to workdir..."
-        echo "Available space in workdir: $(df -h /scratch | awk 'NR==2 {print $4}')"
-        input_basename=$(basename "$input_file")
-        cp "$input_file"* . || { echo "Failed to copy input files to workdir"; exit 1; }
+          pattern=" | "
+          if [[ "$sample_name" =~ "$pattern" ]]; then
+            echo "Sample name should not contain whitespace"
+            exit 1
+          fi
 
-        # Copy reference FASTA locally for better performance
-        if [ "$copy_fasta_to_workdir" = true ]; then
-          echo "Copying reference FASTA to workdir..."
-          cp "$ref_fasta" . || { echo "Failed to copy reference FASTA"; exit 1; }
-          cp "$ref_fasta".fai . || { echo "Failed to copy reference FASTA index"; exit 1; }
-          local_ref_fasta=$(basename "$ref_fasta")
-        else
-          echo "Using reference FASTA from resource storage..."
-          local_ref_fasta="$ref_fasta"
-        fi
+          # Define metrics directory path
+          metrics_dir="${output_folder}/${sample_name}_metrics"
 
-        # Construct extra parameters based on settings
-        extra_params=""
-        if [ "$pcr_free" = true ]; then
-            extra_params="$extra_params --pcr_indel_model none"
-        fi
-        if [ "$output_gvcf" = true ]; then
-            extra_params="$extra_params --emit_mode gvcf"
-            output_suffix="g.vcf.gz"
-        else
-            output_suffix="vcf.gz"
-        fi
+          echo "Starting analysis for $sample_name..."
 
-        # Print info
-        echo "*************************"
-        echo "Running DNAscope variant calling..."
-        echo "ML Model:      $model_path"
-        echo "Input file:    $input_basename"
-        echo "Output folder: $output_folder"
-        echo "CPU Cores:     $AGENT_CPU_CORES"
-        echo "Memory:        $AGENT_MEMORY_GB GB"
-        echo "PCR Free:      $pcr_free"
-        echo "Output GVCF:   $output_gvcf"
-        echo "*************************"
+          mkdir -p "$output_folder" || { echo "Failed to create output directory"; exit 1; }
+          cd "$workdir" || { echo "Failed to change to output directory"; exit 1; }
+          logfile=${sample_name}_dnascope_run.log
+          exec > >(tee -a "$logfile") 2>&1 || { echo "Failed to redirect stdout and stderr to $logfile"; exit 1; }
 
-        # Run DNAscope variant calling
-        start_time=$SECONDS
+          # Copy input files to workdir for better performance
+          echo "Copying input files to workdir..."
+          echo "Available space in workdir: $(df -h /scratch | awk 'NR==2 {print $4}')"
+          input_basename=$(basename "$input_file")
+          cp "$input_file"* . || { echo "Failed to copy input files to workdir"; exit 1; }
 
-        if [[ ! -z "$model_path" ]]; then
-          sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
-            --algo DNAscope --model "$model_path/dnascope.model" $extra_params \
-            "${sample_name}_dnascope_tmp.$output_suffix" || \
-            { echo "DNAscope variant calling failed"; exit 1; }
+          # Copy reference FASTA locally for better performance
+          if [ "$copy_fasta_to_workdir" = true ]; then
+            echo "Copying reference FASTA to workdir..."
+            cp "$ref_fasta" . || { echo "Failed to copy reference FASTA"; exit 1; }
+            cp "$ref_fasta".fai . || { echo "Failed to copy reference FASTA index"; exit 1; }
+            local_ref_fasta=$(basename "$ref_fasta")
+          else
+            echo "Using reference FASTA from resource storage..."
+            local_ref_fasta="$ref_fasta"
+          fi
 
-          sentieon driver -r "$local_ref_fasta" -t $num_threads --temp_dir "$workdir" \
-            --algo DNAModelApply --model "$model_path/dnascope.model" \
-            -v "${sample_name}_dnascope_tmp.$output_suffix" "${output_folder}/${sample_name}_dnascope.$output_suffix" || \
-            { echo "DNAModelApply failed"; exit 1; }
-        else
-          sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
-            --algo DNAscope $extra_params \
-            "${output_folder}/${sample_name}_dnascope.$output_suffix" || \
-            { echo "DNAscope variant calling failed"; exit 1; }
-        fi
+          # Construct extra parameters based on settings
+          extra_params=""
+          if [ "$pcr_free" = true ]; then
+              extra_params="$extra_params --pcr_indel_model none"
+          fi
+          if [ "$output_gvcf" = true ]; then
+              extra_params="$extra_params --emit_mode gvcf"
+              output_suffix="g.vcf.gz"
+          else
+              output_suffix="vcf.gz"
+          fi
 
-        duration=$((SECONDS - start_time))
-        file_size=$(stat -c%s "${output_folder}/${sample_name}_dnascope.$output_suffix")
-        echo "${sample_name}_dnascope.$output_suffix ($file_size bytes) called in $duration seconds"
-        cp -f ${sample_name}_dnascope_run.log "$output_folder"/
+          # Print info
+          echo "*************************"
+          echo "Running DNAscope variant calling..."
+          echo "ML Model:      $model_path"
+          echo "Input file:    $input_basename"
+          echo "Output folder: $output_folder"
+          echo "CPU Cores:     $AGENT_CPU_CORES"
+          echo "Memory:        $AGENT_MEMORY_GB GB"
+          echo "PCR Free:      $pcr_free"
+          echo "Output GVCF:   $output_gvcf"
+          echo "*************************"
+
+          # Run DNAscope variant calling
+          start_time=$SECONDS
+
+          if [[ ! -z "$model_path" ]]; then
+            sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
+              --algo DNAscope --model "$model_path/dnascope.model" $extra_params \
+              "${sample_name}_dnascope_tmp.$output_suffix" || \
+              { echo "DNAscope variant calling failed"; exit 1; }
+
+            sentieon driver -r "$local_ref_fasta" -t $num_threads --temp_dir "$workdir" \
+              --algo DNAModelApply --model "$model_path/dnascope.model" \
+              -v "${sample_name}_dnascope_tmp.$output_suffix" "${output_folder}/${sample_name}_dnascope.$output_suffix" || \
+              { echo "DNAModelApply failed"; exit 1; }
+          else
+            sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
+              --algo DNAscope $extra_params \
+              "${output_folder}/${sample_name}_dnascope.$output_suffix" || \
+              { echo "DNAscope variant calling failed"; exit 1; }
+          fi
+
+          duration=$((SECONDS - start_time))
+          file_size=$(stat -c%s "${output_folder}/${sample_name}_dnascope.$output_suffix")
+          echo "${sample_name}_dnascope.$output_suffix ($file_size bytes) called in $duration seconds"
+          cp -f ${sample_name}_dnascope_run.log "$output_folder"/
+
+        done
