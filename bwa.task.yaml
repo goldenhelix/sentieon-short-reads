@@ -29,6 +29,18 @@ parameters:
               Ultima Genomics WGS 1.0]
     optional: false
 
+  - name: umi_read_structure
+    label: UMI Read Structure
+    type: string
+    optional: true
+    help: "The read structure of the UMI reads. This is used to determine the UMI length and the position of the UMI in the read. If not provided, UMI data will not be extracted."
+
+  - name: duplex_umi
+    label: Duplex UMI
+    type: boolean
+    optional: true
+    help: "If enabled, the UMI will be extracted from the duplex reads. If disabled, the UMI will be extracted from the single reads. Ignored if UMI read structure is not provided."
+
   - name: use_prefix
     label: Use Sample Name as Prefix Filter
     group: Advanced Options
@@ -199,6 +211,16 @@ steps:
 
         echo "Setting input parameters..."
 
+        # UMI read structure
+        umi=false
+        if [ ! -z "$umi_read_structure" ]; then
+          umi=true
+        fi
+
+        if [ $umi == true ] && [ $duplex_umi == true ]; then
+          umi_read_structure="-d $umi_read_structure"
+        fi
+
         # Advanced Options
         if [[ $cram == true ]]; then
           align_extension=".cram"
@@ -225,6 +247,9 @@ steps:
           echo "Input filter: *.fastq.gz"
         fi
         echo "Output folder: $output_folder"
+        if [ $umi == true ]; then
+          echo "UMI: $umi_read_structure"
+        fi
         echo "*************************"
 
         # BWA-MEM
@@ -247,15 +272,29 @@ steps:
                 bam_input="$bam_input -i ${sample_lane}.bam"
                 read_groups="@RG\tID:${sample_lane}\tSM:$sample_name\tPL:$platform"
                 start_time=$SECONDS
-                { (sentieon bwa mem \
-                  -R "$read_groups" \
-                  ${model_path:+-x "${model_path}"/bwa.model} \
-                  -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
-                  "$fastq_1" "$fastq_2" \
-                  || { echo "ERROR: BWA-MEM alignment failed for $file"; false; }) \
-                  2>&3 | sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
-                  3>&1 1>&2 | grep -v --line-buffered "^\[M::mem_pestat" | grep -v --line-buffered "^\[M::process" | grep -v --line-buffered "^\[M::mem_process" || \
-                  { echo "BWA-MEM failed"; exit 1; }
+                if [ $umi == false ]; then 
+                  { (sentieon bwa mem \
+                      -R "$read_groups" \
+                      ${model_path:+-x "${model_path}"/bwa.model} \
+                      -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
+                      "$fastq_1" "$fastq_2" \
+                      || { echo "ERROR: BWA-MEM alignment failed for $file"; false; }) \
+                    2>&3 | sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
+                      3>&1 1>&2 | grep -v --line-buffered "^\[M::mem_pestat" | grep -v --line-buffered "^\[M::process" | grep -v --line-buffered "^\[M::mem_process" || \
+                      { echo "BWA-MEM failed"; exit 1; }
+                else
+                  { (sentieon umi extract $umi_read_structure $fastq_1 $fastq_2 || \
+                      { echo -n "UMI extract error"; false; }) | \
+                    (sentieon bwa mem \
+                      -R "$read_groups" \
+                      ${model_path:+-x "${model_path}"/bwa.model} \
+                      -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
+                      "$fastq_1" "$fastq_2" \
+                      || { echo "ERROR: BWA-MEM alignment failed for $file"; false; }) \
+                    2>&3 | sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
+                      3>&1 1>&2 | grep -v --line-buffered "^\[M::mem_pestat" | grep -v --line-buffered "^\[M::process" | grep -v --line-buffered "^\[M::mem_process" || \
+                      { echo "BWA-MEM failed"; exit 1; }
+                fi
                 duration=$((SECONDS - start_time))
                 file_size=$(stat -c%s "${sample_lane}.bam")
                 echo "${sample_lane}.bam ($file_size bytes) aligned in $duration seconds"
@@ -275,15 +314,29 @@ steps:
             bam_input="$bam_input -i ${sample_lane}.bam"
             read_groups="@RG\tID:${sample_lane}\tSM:$sample_name\tPL:$platform"
             start_time=$SECONDS
-            { (sentieon bwa mem \
-              -M -R "$read_groups" \
-              ${model_path:+-x "${model_path}"/bwa.model} \
-              -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
-              "$file" \
-              || { echo "ERROR: BWA-MEM alignment failed for $file"; false; }) \
-              2>&3 | sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
-              3>&1 1>&2 | grep -v --line-buffered "^\[M::mem_pestat" | grep -v --line-buffered "^\[M::process" | grep -v --line-buffered "^\[M::mem_process" || \
-              { echo "BWA-MEM failed"; exit 1; }
+            if [ $umi == false ]; then
+              { (sentieon bwa mem \
+                -M -R "$read_groups" \
+                ${model_path:+-x "${model_path}"/bwa.model} \
+                -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
+                "$file" \
+                || { echo "ERROR: BWA-MEM alignment failed for $file"; false; }) \
+                2>&3 | sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
+                3>&1 1>&2 | grep -v --line-buffered "^\[M::mem_pestat" | grep -v --line-buffered "^\[M::process" | grep -v --line-buffered "^\[M::mem_process" || \
+                { echo "BWA-MEM failed"; exit 1; }
+            else
+              { (sentieon umi extract $umi_read_structure "$file" || \
+                  { echo -n "UMI extract error"; false; }) | \
+                (sentieon bwa mem \
+                  -M -R "$read_groups" \
+                  ${model_path:+-x "${model_path}"/bwa.model} \
+                  -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
+                  "$file" \
+                  || { echo "ERROR: BWA-MEM alignment failed for $file"; false; }) \
+                2>&3 | sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
+                3>&1 1>&2 | grep -v --line-buffered "^\[M::mem_pestat" | grep -v --line-buffered "^\[M::process" | grep -v --line-buffered "^\[M::mem_process" || \
+                { echo "BWA-MEM failed"; exit 1; }
+            fi
             duration=$((SECONDS - start_time))
             file_size=$(stat -c%s "${sample_lane}.bam")
             echo "${sample_lane}.bam ($file_size bytes) aligned in $duration seconds"
@@ -328,7 +381,7 @@ steps:
           if [ $perform_dedup == true ]; then
             # When both metrics and dedup are needed, combine the operations
             sentieon driver -r "$local_ref_fasta" -t $num_threads $bam_input --temp_dir "$workdir" \
-              --algo LocusCollector --fun score_info score.txt.gz \
+              --algo LocusCollector --fun score_info score.txt.gz ${umi:+--consensus --umi_tag XR} \
               --algo MeanQualityByCycle "$local_metrics_dir/${sample_name}_mq_metrics.txt" \
               --algo QualDistribution "$local_metrics_dir/${sample_name}_qd_metrics.txt" \
               --algo GCBias --summary "$local_metrics_dir/${sample_name}_gc_summary.txt" "$local_metrics_dir/${sample_name}_gc_metrics.txt" \
@@ -338,6 +391,7 @@ steps:
           else
             # Just metrics collection
             sentieon driver -r "$local_ref_fasta" -t $num_threads $bam_input --temp_dir "$workdir" \
+              --algo LocusCollector --fun score_info score.txt.gz ${umi:+--consensus --umi_tag XR} \
               --algo MeanQualityByCycle "$local_metrics_dir/${sample_name}_mq_metrics.txt" \
               --algo QualDistribution "$local_metrics_dir/${sample_name}_qd_metrics.txt" \
               --algo GCBias --summary "$local_metrics_dir/${sample_name}_gc_summary.txt" "$local_metrics_dir/${sample_name}_gc_metrics.txt" \
@@ -371,7 +425,7 @@ steps:
               { echo "Deduplication failed"; exit 1; }
           else
             sentieon driver -t $num_threads --temp_dir "$workdir" $bam_input --algo LocusCollector \
-              --fun score_info score.txt.gz || { echo "LocusCollector failed"; exit 1; }
+              --fun score_info score.txt.gz ${umi:+--consensus --umi_tag XR} || { echo "LocusCollector failed"; exit 1; }
             sentieon driver -r "$ref_fasta" -t $num_threads --temp_dir "$workdir" $bam_input --algo Dedup \
               --score_info score.txt.gz \
               "${output_folder}/${sample_name}_deduped${align_extension}" || \
