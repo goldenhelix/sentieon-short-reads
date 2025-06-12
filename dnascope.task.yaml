@@ -5,6 +5,7 @@ parameters:
   - name: sample_name
     label: Sample Name
     type: string
+    optional: true
 
   - name: input_file
     label: Input Alignment File
@@ -13,6 +14,7 @@ parameters:
       - "*.bam"
       - "*.cram"
     create: false
+    list: true
 
   - name: output_folder
     label: Output Folder
@@ -50,6 +52,12 @@ parameters:
     value: "false"
     help: Set to true to output GVCF format instead of VCF
 
+  - name: joint_calling
+    label: Joint Calling
+    type: boolean
+    value: "false"
+    help: Set to true to run joint-calling for each set of inputs
+
   - name: copy_fasta_to_workdir
     label: Copy Reference FASTA to Working Directory
     type: boolean
@@ -77,6 +85,10 @@ steps:
         workdir="/scratch"
 
         # Collect parameters
+        if [ -z "$sample_name" ]; then
+          sample_name=$(basename "$input_file" | cut -d '_' -f 1)
+        fi
+
         pattern=" | "
         if [[ "$sample_name" =~ "$pattern" ]]; then
           echo "Sample name should not contain whitespace"
