@@ -57,7 +57,7 @@ stages:
         label: Duplex UMI
         type: boolean
         optional: true
-        help: "If enabled, the UMI will be extracted from the duplex reads. If disabled, the UMI will be extracted from the single reads. Ignored if UMI read structure is not provided."
+        help: "If Duplex UMI is enabled, the UMI will be extracted from the duplex reads. If disabled, the UMI will be extracted from the single reads. Ignored if UMI read structure is not provided."
 
   - name: Generate Batch Parameter File
     description: Generate a batch parameter file for the alignment and variant calling workflow
