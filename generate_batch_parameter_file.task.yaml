@@ -33,7 +33,7 @@ steps:
             # Use a TSV file to store family relationships
             # This allows us to support comma-separated values in the bam_list column
             output_file="${input_folder}/family_batch_parameters.tsv"
-            echo "bam_list" > "$output_file"
+            echo "input_file" > "$output_file"
         elif [ "$sample_type" == "Somatic" ]; then 
             output_file="${input_folder}/batch_parameters.csv"
             echo "tumor_sample_name,normal_sample_name,input_tumor,input_normal" > "$output_file"

@@ -45,24 +45,39 @@ stages:
         type: stage
         stage_parameter_expression: "true"
 
+  - name: Generate Batch Parameter File for Family Joint Calling
+    description: Generate a batch parameter file of family relationships for joint calling
+    task_path: generate_batch_parameter_file.task.yaml
+    depends_on:
+      - Alignment with BWA-MEM
+    
+    task_parameters:
+      - name: input_folder
+        label: Input Folder
+        type: stage
+        stage: Alignment with BWA-MEM
+        stage_parameter_expression: "${output_folder}"
+
+      - name: sample_types
+        label: Sample Type
+        type: stage
+        stage: Generate Batch Parameter File for Family Joint Calling
+        stage_parameter_expression: "Family"
+        value: "Family"
+
   - name: Variant Calling with DNAscope 
     description: Variant calling from an alignment file with Sentieon's DNAscope algorithm
     task_path: dnascope.task.yaml
     depends_on:
-      - Alignment with BWA-MEM
+      - Generate Batch Parameter File for Family Joint Calling
     
-    glob_parameter:
-      label: Alignment Folder
-      path:
-        type: stage
-        stage: Alignment with BWA-MEM
-        parameter: output_folder
-      glob_ex: '**/*_*.bam'
-      output_parameters:
-        - task_parameter_name: input_file
-          expression: '${0}'
-        - task_parameter_name: sample_name
-          expression: '${2}'
+    batch_file_parameter:
+      path: 
+        base_path:
+          type: stage
+          stage: Alignment with BWA-MEM
+          parameter: output_folder
+        file: "family_batch_parameters.tsv"
 
     task_parameters:
       - name: output_folder
