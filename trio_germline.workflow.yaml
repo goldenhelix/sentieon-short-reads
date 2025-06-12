@@ -1,5 +1,5 @@
-name: Germline Alignment and Variant Calling
-description: Perform alignment and variant calling with BWA-MEM and DNAscope
+name: Family Alignment and Variant Calling
+description: Perform alignment and variant calling with BWA-MEM and DNAscope, and perform joint-calling for catalog-defined families
 stages:
   - name: Alignment with BWA-MEM
     description: Align FASTQ files with BWA-MEM
@@ -14,8 +14,6 @@ stages:
       output_parameters:
         - task_parameter_name: input_folder
           expression: '${file_directory}'
-        - task_parameter_name: sample_name
-          expression: '${2}'
       
     task_parameters:
       - name: output_folder 
