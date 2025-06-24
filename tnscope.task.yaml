@@ -10,6 +10,7 @@ parameters:
   - name: normal_sample_name
     label: Normal Sample Name
     type: string
+    optional: true
     help: "The name of the normal sample to be used in the output VCF file (must match sample name in alignment file)."
 
   - name: input_tumor
@@ -24,6 +25,7 @@ parameters:
   - name: input_normal
     label: Input Alignment File for Normal Sample (Optional)
     type: file
+    optional: true
     pattern_match:
       - "*.bam"
       - "*.cram"
