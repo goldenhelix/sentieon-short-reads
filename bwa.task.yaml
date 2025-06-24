@@ -214,8 +214,10 @@ steps:
 
         # UMI read structure
         umi=false
+        consensus_arg=""
         if [ ! -z "$umi_read_structure" ]; then
           umi=true
+          consensus_arg="--consensus --umi_tag XR"
         fi
 
         if [ $umi == true ] && [ $duplex_umi == true ]; then
@@ -371,7 +373,7 @@ steps:
           
           start_time=$SECONDS
 
-          # Create local metrics directory instead of writing directly to cloud storage
+          # Create local metrics directory instead of writing directly to output folder
           local_metrics_dir="metrics"
           mkdir -p "$local_metrics_dir" || { echo "Failed to create local metrics directory"; exit 1; }
 
@@ -382,7 +384,7 @@ steps:
           if [ $perform_dedup == true ]; then
             # When both metrics and dedup are needed, combine the operations
             sentieon driver -r "$local_ref_fasta" -t $num_threads $bam_input --temp_dir "$workdir" \
-              --algo LocusCollector --fun score_info score.txt.gz ${umi:+--consensus --umi_tag XR} \
+              --algo LocusCollector --fun score_info score.txt.gz $consensus_arg \
               --algo MeanQualityByCycle "$local_metrics_dir/${sample_name}_mq_metrics.txt" \
               --algo QualDistribution "$local_metrics_dir/${sample_name}_qd_metrics.txt" \
               --algo GCBias --summary "$local_metrics_dir/${sample_name}_gc_summary.txt" "$local_metrics_dir/${sample_name}_gc_metrics.txt" \
@@ -392,7 +394,7 @@ steps:
           else
             # Just metrics collection
             sentieon driver -r "$local_ref_fasta" -t $num_threads $bam_input --temp_dir "$workdir" \
-              --algo LocusCollector --fun score_info score.txt.gz ${umi:+--consensus --umi_tag XR} \
+              --algo LocusCollector --fun score_info score.txt.gz $consensus_arg \
               --algo MeanQualityByCycle "$local_metrics_dir/${sample_name}_mq_metrics.txt" \
               --algo QualDistribution "$local_metrics_dir/${sample_name}_qd_metrics.txt" \
               --algo GCBias --summary "$local_metrics_dir/${sample_name}_gc_summary.txt" "$local_metrics_dir/${sample_name}_gc_metrics.txt" \
@@ -426,7 +428,7 @@ steps:
               { echo "Deduplication failed"; exit 1; }
           else
             sentieon driver -t $num_threads --temp_dir "$workdir" $bam_input --algo LocusCollector \
-              --fun score_info score.txt.gz ${umi:+--consensus --umi_tag XR} || { echo "LocusCollector failed"; exit 1; }
+              --fun score_info score.txt.gz $consensus_arg || { echo "LocusCollector failed"; exit 1; }
             sentieon driver -r "$ref_fasta" -t $num_threads --temp_dir "$workdir" $bam_input --algo Dedup \
               --score_info score.txt.gz \
               "${output_folder}/${sample_name}_deduped${align_extension}" || \
@@ -464,11 +466,11 @@ steps:
           echo "File operation completed in $duration seconds"
         fi
 
-        # Copy metrics to cloud storage if they were generated
+        # Copy metrics to output folder if they were generated
         if [ $output_metrics == true ]; then
-          mkdir -p "$metrics_dir" || { echo "Failed to create cloud metrics directory"; exit 1; }
-          cp -r "$local_metrics_dir"/* "$metrics_dir/" || { echo "Failed to copy metrics to cloud storage"; exit 1; }
-          echo "Metrics copied to cloud storage"
+          mkdir -p "$metrics_dir" || { echo "Failed to create output folder metrics directory"; exit 1; }
+          cp -r "$local_metrics_dir"/* "$metrics_dir/" || { echo "Failed to copy metrics to output folder"; exit 1; }
+          echo "Metrics copied to output folder"
         fi
 
         cp -f ${sample_name}_bwa_run.log "$output_folder"/

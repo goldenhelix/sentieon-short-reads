@@ -62,9 +62,7 @@ steps:
                     
                     case "$tumor_sample" in
                         "")
-                            echo "Sample $sample_name not found in catalog"
-                            echo "Skipping sample"
-                            continue
+                            echo "Sample $sample_name not found in catalog, assuming tumor only"
                             ;;
                         "Tumor")
                             echo "Sample $sample_name is a tumor sample; adding to batch parameter file"
