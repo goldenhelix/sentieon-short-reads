@@ -72,9 +72,7 @@ steps:
                             continue
                             ;;
                         *)
-                            echo "Sample $sample_name is not a tumor or normal sample"
-                            echo "Skipping sample"
-                            continue
+                            echo "Sample $sample_name is specified as normal, assuming tumor only"
                             ;;
                     esac
 
