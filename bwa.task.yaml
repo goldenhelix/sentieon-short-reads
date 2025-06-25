@@ -286,7 +286,7 @@ steps:
                       3>&1 1>&2 | grep -v --line-buffered "^\[M::mem_pestat" | grep -v --line-buffered "^\[M::process" | grep -v --line-buffered "^\[M::mem_process" || \
                       { echo "BWA-MEM failed"; exit 1; }
                 else
-                  { (sentieon umi extract $umi_read_structure $fastq_1 $fastq_2 || \
+                  { (sentieon umi extract $umi_read_structure "$fastq_1" "$fastq_2" || \
                       { echo -n "UMI extract error"; false; }) | \
                     (sentieon bwa mem \
                       -p -C \
