@@ -252,8 +252,16 @@ steps:
         echo "Output folder: $output_folder"
         if [ $umi == true ]; then
           echo "UMI: $umi_read_structure"
+          # Dedup and metrics is required for UMI data
+          perform_dedup=true
+          output_metrics=true
         fi
         echo "*************************"
+        
+        echo "Copying reference FASTA to workdir..."
+        cp "$ref_fasta" . || { echo "Failed to copy reference FASTA"; exit 1; }
+        cp "$ref_fasta".fai . || { echo "Failed to copy reference FASTA index"; exit 1; }
+        local_ref_fasta=$(basename "$ref_fasta")
 
         # BWA-MEM
         # If use_prefix is enabled, only process FASTQ files starting with the sample name
@@ -263,9 +271,9 @@ steps:
         bam_input=""
         if [[ $paired_end == true ]]; then
           while IFS= read -r file; do
-            if [[ "$file" =~ _R1_ ]]; then
+            if [[ "$file" =~ _R1 ]]; then
               fastq_1="$file"
-              fastq_2="${file/_R1_/_R2_}"
+              fastq_2="${file/_R1/_R2}"
               reads_base="${fastq_1%%_R1*}"
               sample_lane=$(basename "$reads_base")
               if [[ -f "$fastq_2" ]]; then
@@ -282,7 +290,7 @@ steps:
                       -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
                       "$fastq_1" "$fastq_2" \
                       || { echo "ERROR: BWA-MEM alignment failed for $file"; false; }) \
-                    2>&3 | sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
+                    2>&3 | sentieon util sort -r "$local_ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
                       3>&1 1>&2 | grep -v --line-buffered "^\[M::mem_pestat" | grep -v --line-buffered "^\[M::process" | grep -v --line-buffered "^\[M::mem_process" || \
                       { echo "BWA-MEM failed"; exit 1; }
                 else
@@ -295,7 +303,7 @@ steps:
                       -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
                       - \
                       || { echo "ERROR: BWA-MEM alignment failed for $file"; false; }) \
-                    2>&3 | sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
+                    2>&3 | sentieon util sort -r "$local_ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
                       3>&1 1>&2 | grep -v --line-buffered "^\[M::mem_pestat" | grep -v --line-buffered "^\[M::process" | grep -v --line-buffered "^\[M::mem_process" || \
                       { echo "BWA-MEM failed"; exit 1; }
                 fi
@@ -325,7 +333,7 @@ steps:
                 -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
                 "$file" \
                 || { echo "ERROR: BWA-MEM alignment failed for $file"; false; }) \
-                2>&3 | sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
+                2>&3 | sentieon util sort -r "$local_ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
                 3>&1 1>&2 | grep -v --line-buffered "^\[M::mem_pestat" | grep -v --line-buffered "^\[M::process" | grep -v --line-buffered "^\[M::mem_process" || \
                 { echo "BWA-MEM failed"; exit 1; }
             else
@@ -337,7 +345,7 @@ steps:
                   -t $num_threads -K $input_bases_per_batch "$ref_fasta" \
                   "$file" \
                   || { echo "ERROR: BWA-MEM alignment failed for $file"; false; }) \
-                2>&3 | sentieon util sort -r "$ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
+                2>&3 | sentieon util sort -r "$local_ref_fasta" -o "${sample_lane}.bam" -t $num_threads --sam2bam -i - ;} \
                 3>&1 1>&2 | grep -v --line-buffered "^\[M::mem_pestat" | grep -v --line-buffered "^\[M::process" | grep -v --line-buffered "^\[M::mem_process" || \
                 { echo "BWA-MEM failed"; exit 1; }
             fi
@@ -378,10 +386,6 @@ steps:
           local_metrics_dir="metrics"
           mkdir -p "$local_metrics_dir" || { echo "Failed to create local metrics directory"; exit 1; }
 
-          cp "$ref_fasta" . || { echo "Failed to copy reference FASTA"; exit 1; }
-          cp "$ref_fasta".fai . || { echo "Failed to copy reference FASTA"; exit 1; }
-          local_ref_fasta=$(basename "$ref_fasta")
-
           if [ $perform_dedup == true ]; then
             # When both metrics and dedup are needed, combine the operations
             sentieon driver -r "$local_ref_fasta" -t $num_threads $bam_input --temp_dir "$workdir" \
@@ -395,7 +399,7 @@ steps:
           else
             # Just metrics collection
             sentieon driver -r "$local_ref_fasta" -t $num_threads $bam_input --temp_dir "$workdir" \
-              --algo LocusCollector --fun score_info score.txt.gz $consensus_arg \
+              --algo LocusCollector --fun score_info score.txt.gz \
               --algo MeanQualityByCycle "$local_metrics_dir/${sample_name}_mq_metrics.txt" \
               --algo QualDistribution "$local_metrics_dir/${sample_name}_qd_metrics.txt" \
               --algo GCBias --summary "$local_metrics_dir/${sample_name}_gc_summary.txt" "$local_metrics_dir/${sample_name}_gc_metrics.txt" \
@@ -423,14 +427,16 @@ steps:
           start_time=$SECONDS
 
           if [ $output_metrics == true ]; then
-            sentieon driver -r "$ref_fasta" -t $num_threads --temp_dir "$workdir" $bam_input --algo Dedup \
+            sentieon driver -r "$local_ref_fasta" -t $num_threads --temp_dir "$workdir" $bam_input --algo Dedup \
               --score_info score.txt.gz --metrics "$local_metrics_dir/${sample_name}_dedup_metrics.txt" \
-              "${output_folder}/${sample_name}_deduped${align_extension}" || \
+              "${sample_name}_deduped${align_extension}" || \
               { echo "Deduplication failed"; exit 1; }
+            cp "${sample_name}_deduped${align_extension}"* "${output_folder}/" || \
+              { echo "Copy failed"; exit 1; }
           else
             sentieon driver -t $num_threads --temp_dir "$workdir" $bam_input --algo LocusCollector \
               --fun score_info score.txt.gz $consensus_arg || { echo "LocusCollector failed"; exit 1; }
-            sentieon driver -r "$ref_fasta" -t $num_threads --temp_dir "$workdir" $bam_input --algo Dedup \
+            sentieon driver -r "$local_ref_fasta" -t $num_threads --temp_dir "$workdir" $bam_input --algo Dedup \
               --score_info score.txt.gz \
               "${output_folder}/${sample_name}_deduped${align_extension}" || \
               { echo "Deduplication failed"; exit 1; }
@@ -458,7 +464,7 @@ steps:
             fi
           else
             # Multiple BAMs need to be merged or CRAM output is requested
-            sentieon driver -r "$ref_fasta" -t $num_threads --temp_dir "$workdir" $bam_input --algo ReadWriter \
+            sentieon driver -r "$local_ref_fasta" -t $num_threads --temp_dir "$workdir" $bam_input --algo ReadWriter \
               "${output_folder}/${sample_name}_sorted${align_extension}" || \
               { echo "Merging failed"; exit 1; }
           fi
