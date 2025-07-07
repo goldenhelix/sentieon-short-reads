@@ -11,6 +11,14 @@ parameters:
     label: Input Folder
     help: The input folder of vcf.gz files to import
     type: directory
+    supports_location_mode: 'read_only'
+
+  - name: project_directory
+    label: Project Directory
+    help: The directory where the VarSeq project will be created
+    type: directory
+    supports_location_mode: 'read_write'
+    value: AppData/Projects
 
   - name: project_name
     label: Project Name
@@ -23,10 +31,10 @@ parameters:
     type: file
 
   - name: overwrite_project
-    lable: Overwrite Existing VarSeq Projects
+    label: Overwrite Existing VarSeq Projects
     help: Select to overwrite existing VarSeq projects
     type: boolean
-    default: True
+    value: "true"
 
 steps:
   - name: vspipeline
@@ -46,8 +54,10 @@ steps:
           export GH_TEMPDIR="/scratch"
         fi
 
+        mkdir -p ${project_directory}
+
         echo "Running VSPipeline and creating VarSeq project"
-        echo "Output path: ${base_path}/${project_name}"
+        echo "Output path: ${project_directory}/${project_name}"
 
         cd ${base_path}
 
