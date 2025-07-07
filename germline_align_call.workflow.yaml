@@ -98,3 +98,19 @@ stages:
         label: Copy Reference FASTA to Working Directory 
         type: boolean
         value: "false"
+
+  - name: VSPipeline
+    description: Create a project with called variants
+    run_step: optional_default_skip
+    task_path: ../VSPipeline/dnascope.task.yaml
+    task_parameters:
+
+      - name: project_name
+        label: Project Name
+        value: VSProject
+        type: string
+
+      - name: project_template
+        label: VarSeq Project Template
+        type: file
+        path: AppData/VarSeq/User Data/ProjectTemplates/

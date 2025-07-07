@@ -1,0 +1,54 @@
+name: VSPipeline Create Project
+description: Create a VarSeq project from a template and input files
+auto_generate_session_for_account: "{workspaceBot}"
+
+agent_requirements:
+  cpu_cores: 4
+  memory_gb: 12
+
+parameters:
+  - name: base_path
+    label: Input Folder
+    help: The input folder of vcf.gz files to import
+    type: directory
+
+  - name: project_name
+    label: Project Name
+    help: The name of the VarSeq project to create
+    type: string
+
+  - name: project_template
+    label: Project Template
+    help: The template to use for the VarSeq project
+    type: file
+
+  - name: overwrite_project
+    lable: Overwrite Existing VarSeq Projects
+    help: Select to overwrite existing VarSeq projects
+    type: boolean
+    default: True
+
+steps:
+  - name: vspipeline
+    description: Run VSPipeline and create a VarSeq project
+    type: cmd
+    docker:
+      image: ${VSPIPELINE_DOCKER_IMAGE}
+    args:
+      - |-
+        set -exvuo pipefail
+
+        export GOLDENHELIX_USERDATA=${WORKSPACE_DIR}/AppData
+        if [ -d "$WORKSPACE_DIR/AppData/VarSeq/User Data" ]; then
+          export GH_CRASH_DUMP_DIR="$WORKSPACE_DIR/AppData/VarSeq/User Data"
+        fi
+        if [ -d "/scratch" ]; then
+          export GH_TEMPDIR="/scratch"
+        fi
+
+        echo "Running VSPipeline and creating VarSeq project"
+        echo "Output path: ${base_path}/${project_name}"
+
+        cd ${base_path}
+
+        

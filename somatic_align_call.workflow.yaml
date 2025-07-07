@@ -10,6 +10,7 @@ stages:
       label: FASTQ Base Folder
       path:
         type: directory
+        supports_location_mode: 'no_append'
       glob_ex: '**/*_*.f*q.gz'
       output_parameters:
         - task_parameter_name: input_folder
@@ -22,6 +23,7 @@ stages:
         label: Output Folder
         help: "The output folder for the resulting alignment files, VCFs, and (optional) metrics files."
         type: directory
+        supports_location_mode: 'no_append'
 
       - name: ref_fasta
         label: Reference File (FASTA)
