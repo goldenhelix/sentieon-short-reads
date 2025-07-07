@@ -45,7 +45,7 @@ steps:
       image: ${VSPIPELINE_DOCKER_IMAGE}
     args:
       - |-
-        set -exvuo pipefail
+        set -eu pipefail
 
         export GOLDENHELIX_USERDATA=${WORKSPACE_DIR}/AppData
         if [ -d "$WORKSPACE_DIR/AppData/VarSeq/User Data" ]; then
@@ -85,8 +85,6 @@ steps:
         project_close
         EOF
 
-        /opt/vspipeline/vspipeline \
-          -c batch file=create-project.vs-batch || \
-          {echo "VSPipeline failed"; exit 1;}
+        /opt/vspipeline/vspipeline -c batch file=create-project.vs-batch || { echo "VSPipeline failed"; exit 1; }
 
         rm -rf create-project.vs-batch
