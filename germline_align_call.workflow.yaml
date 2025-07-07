@@ -102,10 +102,10 @@ stages:
         type: boolean
         value: "false"
 
-  - name: VSPipeline
+  - name: Create VarSeq project
     description: Create a project with called variants
     run_step: optional_default_skip
-    task_path: ../VSPipeline/dnascope.task.yaml
+    task_path: vspipeline.task.yaml
     task_parameters:
 
       - name: project_name
@@ -116,4 +116,10 @@ stages:
       - name: project_template
         label: VarSeq Project Template
         type: file
+        help: "The template to use for the VarSeq project."
         path: /AppData/VarSeq/User Data/ProjectTemplates/
+
+      - name: overwrite_project
+        label: Overwrite Existing VarSeq Projects
+        type: boolean
+        value: "true"

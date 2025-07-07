@@ -115,25 +115,25 @@ stages:
         type: boolean
         value: "false"
 
-  - name: Create VarSeq Project
+  - name: Create VarSeq project
+    description: Create a project with called variants
     run_step: optional_default_skip
-    description: Create a VarSeq project from the alignment and variant calling results
     task_path: vspipeline.task.yaml
-    depends_on:
-      - Variant Calling with DNAscope
-
     task_parameters:
-      - name: base_path
-        label: Input Folder 
-        type: stage
-        stage: Variant Calling with DNAscope
-        stage_parameter_expression: "${output_folder}"
 
       - name: project_name
         label: Project Name
+        value: VSProject
         type: string
-        optional: true
-        
+
       - name: project_template
-        label: Project Template
-        
+        label: VarSeq Project Template
+        type: file
+        help: "The template to use for the VarSeq project."
+        path: /AppData/VarSeq/User Data/ProjectTemplates/
+
+      - name: overwrite_project
+        label: Overwrite Existing VarSeq Projects
+        type: boolean
+        value: "true"
+
