@@ -19,6 +19,7 @@ parameters:
   - name: output_folder
     label: Output Folder
     type: directory
+    supports_location_mode: 'no_append'
 
   - name: ref_fasta
     label: Reference File (FASTA)
@@ -38,6 +39,7 @@ parameters:
     label: Sentieon Models Base Path
     group: Advanced Options 
     type: directory
+    supports_location_mode: 'read_only'
     value: "CloudStorage/resources/sentieon_models"
 
   - name: pcr_free

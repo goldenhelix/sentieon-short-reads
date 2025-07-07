@@ -10,6 +10,7 @@ stages:
       label: FASTQ Base Folder
       path:
         type: directory
+        supports_location_mode: 'read_only'
       glob_ex: '**/*_*.f*q.gz'
       output_parameters:
         - task_parameter_name: input_folder
@@ -21,11 +22,13 @@ stages:
       - name: output_folder 
         label: Output Folder
         type: directory
+        supports_location_mode: 'no_append'
 
       - name: model_base_path
         label: Sentieon Models Base Path
         group: Advanced Options
         type: directory
+        supports_location_mode: 'read_only'
         optional: true
 
       - name: ml_model
@@ -113,4 +116,4 @@ stages:
       - name: project_template
         label: VarSeq Project Template
         type: file
-        path: AppData/VarSeq/User Data/ProjectTemplates/
+        path: /AppData/VarSeq/User Data/ProjectTemplates/

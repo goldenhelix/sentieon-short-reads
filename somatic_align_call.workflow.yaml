@@ -10,7 +10,7 @@ stages:
       label: FASTQ Base Folder
       path:
         type: directory
-        supports_location_mode: 'no_append'
+        supports_location_mode: 'read_only'
       glob_ex: '**/*_*.f*q.gz'
       output_parameters:
         - task_parameter_name: input_folder
@@ -126,15 +126,16 @@ stages:
       - name: project_name
         label: Project Name
         type: string
-        value: "VSProject"
+        optional: true
         
       - name: project_template
         label: Project Template
         type: file
-        optional: true
+        optional: false
         help: "The template to use for the VarSeq project. If not provided, the default template will be used."
+        path: /AppData/VarSeq/User Data/ProjectTemplates/
 
       - name: overwrite_project
         label: Overwrite Existing VarSeq Projects
         type: boolean
-        default: True
+        value: "true"

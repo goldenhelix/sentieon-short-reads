@@ -44,6 +44,7 @@ parameters:
   - name: target_directory
     label: Base Folder
     type: directory
+    supports_location_mode: 'no_append'
     optional: true
     group: Advanced Options
     help: Defaults to the directory specified by RESOURCES_PATH in Workspace Settings

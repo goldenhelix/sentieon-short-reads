@@ -10,6 +10,7 @@ stages:
       label: FASTQ Base Folder
       path:
         type: directory
+        supports_location_mode: 'read_only'
       glob_ex: '**/*_*.f*q.gz'
       output_parameters:
         - task_parameter_name: input_folder
@@ -19,11 +20,13 @@ stages:
       - name: output_folder 
         label: Output Folder
         type: directory
+        supports_location_mode: 'no_append'
 
       - name: model_base_path
         label: Sentieon Models Base Path
         group: Advanced Options
         type: directory
+        supports_location_mode: 'read_only'
         optional: true
 
       - name: ml_model
@@ -111,3 +114,26 @@ stages:
         label: Copy Reference FASTA to Working Directory 
         type: boolean
         value: "false"
+
+  - name: Create VarSeq Project
+    run_step: optional_default_skip
+    description: Create a VarSeq project from the alignment and variant calling results
+    task_path: vspipeline.task.yaml
+    depends_on:
+      - Variant Calling with DNAscope
+
+    task_parameters:
+      - name: base_path
+        label: Input Folder 
+        type: stage
+        stage: Variant Calling with DNAscope
+        stage_parameter_expression: "${output_folder}"
+
+      - name: project_name
+        label: Project Name
+        type: string
+        optional: true
+        
+      - name: project_template
+        label: Project Template
+        

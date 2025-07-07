@@ -34,6 +34,7 @@ parameters:
 
   - name: output_folder
     label: Output Folder
+    supports_location_mode: 'no_append'
     type: directory
     help: "The output folder for the resulting VCF files."
 

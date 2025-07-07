@@ -10,10 +10,12 @@ parameters:
   - name: input_folder
     label: Input Folder
     type: directory
+    supports_location_mode: 'read_only'
 
   - name: output_folder
     label: Output Folder
     type: directory
+    supports_location_mode: 'no_append'
 
   - name: ref_fasta
     label: Reference File (FASTA)
@@ -77,6 +79,7 @@ parameters:
     label: Sentieon Models Base Path
     group: Advanced Options 
     type: directory
+    supports_location_mode: 'read_only'
     optional: true
 
   - name: input_bases_per_batch
