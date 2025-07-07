@@ -120,15 +120,21 @@ stages:
     run_step: optional_default_skip
     task_path: vspipeline.task.yaml
     task_parameters:
+      - name: base_path
+        label: Input Folder
+        type: stage
+        stage: Variant Calling with DNAscope
+        stage_parameter_expression: "${output_folder}"
 
       - name: project_name
         label: Project Name
-        value: VSProject
         type: string
-
+        optional: true
+  
       - name: project_template
         label: VarSeq Project Template
         type: file
+        optional: false
         help: "The template to use for the VarSeq project."
         path: /AppData/VarSeq/User Data/ProjectTemplates/
 
