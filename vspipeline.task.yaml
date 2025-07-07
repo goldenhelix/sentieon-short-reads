@@ -24,6 +24,7 @@ parameters:
     label: Project Name
     help: The name of the VarSeq project to create
     type: string
+    optional: true
 
   - name: project_template
     label: Project Template
@@ -54,7 +55,17 @@ steps:
           export GH_TEMPDIR="/scratch"
         fi
 
+        # Create parent directory if it doesn't exist, and check for project directory
         mkdir -p ${project_directory}
+        if [[ -d "${project_directory}/${project_name}" && "${overwrite_project}" == "false" ]]; then
+          echo "Project directory already exists and overwrite is set to false"
+          exit 1
+        fi
+
+        # If project_name is not provided, use the base directory name
+        if [[ -z "${project_name}" ]]; then
+          project_name=$(basename "${base_path}")
+        fi
 
         echo "Running VSPipeline and creating VarSeq project"
         echo "Output path: ${project_directory}/${project_name}"
