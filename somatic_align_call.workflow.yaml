@@ -108,3 +108,33 @@ stages:
         type: stage
         stage: Alignment with BWA-MEM
         stage_parameter_expression: "${ref_fasta}"
+
+  - name: Create VarSeq Project
+    run_step: optional_default_skip
+    description: Create a VarSeq project from the alignment and variant calling results
+    task_path: vspipeline.task.yaml
+    depends_on:
+      - Variant Calling with TNscope
+
+    task_parameters:
+      - name: base_path
+        label: Input Folder
+        type: stage
+        stage: Variant Calling with TNscope
+        stage_parameter_expression: "${output_folder}"
+
+      - name: project_name
+        label: Project Name
+        type: string
+        value: "VSProject"
+        
+      - name: project_template
+        label: Project Template
+        type: file
+        optional: true
+        help: "The template to use for the VarSeq project. If not provided, the default template will be used."
+
+      - name: overwrite_project
+        label: Overwrite Existing VarSeq Projects
+        type: boolean
+        default: True
