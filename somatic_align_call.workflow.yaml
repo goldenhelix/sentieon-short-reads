@@ -132,7 +132,7 @@ stages:
         label: Project Template
         type: file
         optional: false
-        help: "The template to use for the VarSeq project. If not provided, the default template will be used."
+        help: "The template to use for the VarSeq project."
         path: /AppData/VarSeq/User Data/ProjectTemplates/
 
       - name: overwrite_project

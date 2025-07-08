@@ -106,6 +106,9 @@ stages:
     description: Create a project with called variants
     run_step: optional_default_skip
     task_path: vspipeline.task.yaml
+    depends_on:
+      - Variant Calling with DNAscope
+
     task_parameters:
       - name: base_path
         label: Input Folder
