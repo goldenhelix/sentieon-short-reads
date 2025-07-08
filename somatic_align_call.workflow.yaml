@@ -28,6 +28,7 @@ stages:
       - name: ref_fasta
         label: Reference File (FASTA)
         type: file
+        supports_location_mode: 'read_only'
         optional: true  
         help: "Optionally specify the reference file to align to. If not provided, the default reference file will be used. Note that the default reference file must be downloaded and set appropriately."
         
@@ -131,6 +132,7 @@ stages:
       - name: project_template
         label: Project Template
         type: file
+        supports_location_mode: 'read_only'
         optional: false
         help: "The template to use for the VarSeq project."
         path: /AppData/VarSeq/User Data/ProjectTemplates/

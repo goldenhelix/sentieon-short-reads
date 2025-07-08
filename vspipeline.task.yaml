@@ -17,7 +17,7 @@ parameters:
     label: Project Directory
     help: The directory where the VarSeq project will be created
     type: directory
-    supports_location_mode: 'no_append'
+    supports_location_mode: 'read_write'
     value: AppData/Projects
 
   - name: project_name
@@ -30,6 +30,7 @@ parameters:
     label: Project Template
     help: The template to use for the VarSeq project
     type: file
+    supports_location_mode: 'read_only'
 
   - name: overwrite_project
     label: Overwrite Existing VarSeq Projects

@@ -10,6 +10,7 @@ parameters:
   - name: input_file
     label: Input Alignment File
     type: file
+    supports_location_mode: 'read_only'
     pattern_match:
       - "*.bam"
       - "*.cram"
@@ -24,6 +25,7 @@ parameters:
   - name: ref_fasta
     label: Reference File (FASTA)
     type: file
+    supports_location_mode: 'read_only'
     optional: true
 
   - name: ml_model

@@ -16,6 +16,7 @@ parameters:
   - name: input_tumor
     label: Input Alignment File for Tumor Sample
     type: file
+    supports_location_mode: 'read_only'
     pattern_match:
       - "*.bam"
       - "*.cram"
@@ -25,6 +26,7 @@ parameters:
   - name: input_normal
     label: Input Alignment File for Normal Sample (Optional)
     type: file
+    supports_location_mode: 'read_only'
     optional: true
     pattern_match:
       - "*.bam"
@@ -41,6 +43,7 @@ parameters:
   - name: ref_fasta
     label: Reference File (FASTA)
     type: file
+    supports_location_mode: 'read_only'
     optional: true
 
   - name: copy_fasta_to_workdir
