@@ -52,6 +52,143 @@ parameters:
     value: "true"
     help: Set to false to use the reference FASTA from cloud or local storage instead of copying to the working directory
 
+  - name: min_base_qual
+    label: Minimum Base Quality
+    type: integer
+    value: "15"
+    help: Determines the filtering quality of the bases used in variant calling.
+    group: Variant Calling Parameters
+
+  - name: prune_factor
+    label: Prune Factor
+    type: integer
+    value: "2"
+    help: Minimum pruning factor in local assembly; paths with fewer supporting kmers than FACTOR will be pruned from the graph. Setting the prune factor to 0 will turn on adaptive pruning.
+    group: Variant Calling Parameters
+
+  - name: pcr_indel_model 
+    label: PCR Indel Model
+    type: enum
+    value: "NONE"
+    choices: ["NONE", "HOSTILE", "AGGRESSIVE", "CONSERVATIVE"]
+    help: "PCR indel model used to weed out false positive indels more or less aggressively. The possible modes are: NONE (used for PCR free samples), and HOSTILE, AGGRESSIVE and CONSERVATIVE, in order of decreasing aggressiveness."
+    group: Variant Calling Parameters
+  
+  - name: phasing
+    label: Phasing
+    type: enum
+    value: "1"
+    choices: ["0", "1"]
+    help: Flag to enable or disable phasing in the output. The default value is 1 (on).
+    group: Variant Calling Parameters
+
+  - name: min_init_tumor_lod
+    label: Minimum Tumor Log Odds (Initial Pass)
+    type: float
+    default: "4"
+    help: Minimum tumor log odds in the initial pass. 
+    group: Variant Calling Parameters
+
+  - name: min_init_normal_lod
+    label: Minimum Normal Log Odds (Initial Pass)
+    type: float
+    default: "0.5"
+    help: Minimum normal log odds in the initial pass.
+    group: Variant Calling Parameters
+
+  - name: min_tumor_lod
+    label: Minimum Tumor Log Odds (Final Pass)
+    type: float
+    default: "6.3"
+    help: Minimum tumor log odds in the final pass.
+    group: Variant Calling Parameters
+
+  - name: min_normal_lod
+    label: Minimum Normal Log Odds (Final Pass)
+    type: float
+    default: "2.2"
+    help: Minimum normal log odds in the final pass.
+    group: Variant Calling Parameters
+
+  - name: tumor_contamination_frac
+    label: Tumor Contamination Fraction
+    type: float
+    default: "0"
+    help: Estimation of the contamination fraction on the tumor sample from otehr samples. 
+    group: Variant Calling Parameters
+
+  - name: normal_contamination_frac
+    label: Normal Contamination Fraction
+    type: float
+    default: "0"
+    help: Estimation of the contamination fraction on the normal sample from otehr samples. 
+    group: Variant Calling Parameters
+
+  - name: detect_sv
+    label: Detect Structural Variants
+    type: boolean
+    value: "true"
+    help: Set to false to disable structural variant detection
+    group: Variant Calling Parameters
+
+  - name: sv_mask_ext
+    label: Structural Variant Mask Extension
+    type: integer
+    value: "10"
+    help: Extension of the structural variant mask in bp.
+    group: Variant Calling Parameters
+
+  - name: max_fisher_pv_active
+    label: Maximum Fisher P-Value Active
+    type: float
+    value: "0.05"
+    help: Maximum Fisher P-value active.
+    group: Variant Calling Parameters
+
+  - name: min_tumor_allele_frac 
+    label: Minimum Tumor Allele Fraction
+    type: float
+    value: "0.0005"
+    help: Minimum tumor allele fraction.
+    group: Variant Calling Parameters
+
+  - name: kmer_sizes
+    label: Kmer Sizes
+    type: string
+    value: "35,40"
+    help: Kmer sizes to use for variant calling. Use a comma-separated list of integers.
+    group: Variant Calling Parameters
+
+  - name: assemble_mode
+    label: Assemble Mode
+    type: integer
+    value: "4"
+    help: Assemble mode. The default value is 4. 
+    group: Variant Calling Parameters
+
+  - name: no_mapq_cap
+    label: No MapQ Cap
+    type: enum
+    value: "1"
+    choices: ["0", "1"]
+    help: Set to 0 to disable the mapping quality cap.
+    group: Variant Calling Parameters
+
+  - name: clip_by_minbq
+    label: Clip by Minimum Base Quality
+    type: enum
+    value: "1"
+    choices: ["0", "1"]
+    help: Set to 0 to disable clipping by minimum base quality.
+    group: Variant Calling Parameters
+
+  - name: max_error_per_read
+    label: Maximum Error per Read
+    type: integer
+    value: "3"
+    help: Maximum error per read.
+    group: Variant Calling Parameters
+
 agent_requirements:
   cpu_cores: 16
   memory_gb: 16
@@ -148,7 +285,25 @@ steps:
             ${input_normal:+-i "$input_normal"} \
             --temp_dir "$workdir" \
             --algo TNscope \
-            --disable_detector sv \
+            --max_fisher_pv_active $max_fisher_pv_active \
+            --min_tumor_allele_frac $min_tumor_allele_frac \
+            --kmer_sizes $kmer_sizes \
+            --assemble_mode $assemble_mode \
+            --no_mapq_cap $no_mapq_cap \
+            --clip_by_minbq $clip_by_minbq \
+            --max_error_per_read $max_error_per_read \
+            --min_init_tumor_lod $min_init_tumor_lod \
+            --min_init_normal_lod $min_init_normal_lod \
+            --min_tumor_lod $min_tumor_lod \
+            --min_normal_lod $min_normal_lod \
+            --tumor_contamination_frac $tumor_contamination_frac \
+            --normal_contamination_frac $normal_contamination_frac \
+            --phasing $phasing \
+            --prune_factor $prune_factor \
+            --pcr_indel_model $pcr_indel_model \
+            --min_base_qual $min_base_qual \
+            ${detect_sv:+--sv_mask_ext $sv_mask_ext} \
+            ${detect_sv:---disable_detector sv} \
             --tumor_sample "$tumor_sample_name" \
             ${input_normal:+--normal_sample "$normal_sample_name"} \
             "$tumor_vcf" || { echo "TNscope variant calling failed"; exit 1; }
