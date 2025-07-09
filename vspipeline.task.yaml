@@ -72,13 +72,12 @@ steps:
         echo "Output path: ${project_directory}/${project_name}"
 
         cd ${base_path}
-
         vcf_files=$(find . -name "*.vcf.gz" -type f | paste -sd ',' - | sed 's/\([^,]*\)/"\1"/g')
 
         # Write the VSPipeline commands to a file
         cat <<EOF > create-project.vs-batch
         get_version
-        project_create "${project_name}" "${project_template}" ${overwrite_project:+overwrite=true}
+        project_create "${project_directory}/${project_name}" "${project_template}" ${overwrite_project:+overwrite=true}
         import files="${vcf_files}" append_files_with_same_samples=True
         download_required_sources
         task_wait
