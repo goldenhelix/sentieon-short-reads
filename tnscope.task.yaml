@@ -85,42 +85,42 @@ parameters:
   - name: min_init_tumor_lod
     label: Minimum Tumor Log Odds (Initial Pass)
     type: float
-    default: "4"
+    value: "4"
     help: Minimum tumor log odds in the initial pass. 
     group: Variant Calling Parameters
 
   - name: min_init_normal_lod
     label: Minimum Normal Log Odds (Initial Pass)
     type: float
-    default: "0.5"
+    value: "0.5"
     help: Minimum normal log odds in the initial pass.
     group: Variant Calling Parameters
 
   - name: min_tumor_lod
     label: Minimum Tumor Log Odds (Final Pass)
     type: float
-    default: "6.3"
+    value: "6.3"
     help: Minimum tumor log odds in the final pass.
     group: Variant Calling Parameters
 
   - name: min_normal_lod
     label: Minimum Normal Log Odds (Final Pass)
     type: float
-    default: "2.2"
+    value: "2.2"
     help: Minimum normal log odds in the final pass.
     group: Variant Calling Parameters
 
   - name: tumor_contamination_frac
     label: Tumor Contamination Fraction
     type: float
-    default: "0"
+    value: "0"
     help: Estimation of the contamination fraction on the tumor sample from otehr samples. 
     group: Variant Calling Parameters
 
   - name: normal_contamination_frac
     label: Normal Contamination Fraction
     type: float
-    default: "0"
+    value: "0"
     help: Estimation of the contamination fraction on the normal sample from otehr samples. 
     group: Variant Calling Parameters
 
