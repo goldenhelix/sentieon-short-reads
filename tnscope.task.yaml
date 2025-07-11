@@ -243,9 +243,11 @@ steps:
         echo "Copying input files to workdir..."
         echo "Available space in workdir: $(df -h /scratch | awk 'NR==2 {print $4}')"
         cp "$input_tumor" . || { echo "Failed to copy tumor files to workdir"; exit 1; }
+        cp "$input_tumor".bai . || { echo "Failed to copy tumor files to workdir"; exit 1; }
         input_tumor=$(basename "$input_tumor")
         if [ $tumor_only = false ]; then
             cp "$input_normal" . || { echo "Failed to copy normal files to workdir"; exit 1; }
+            cp "$input_normal".bai . || { echo "Failed to copy normal files to workdir"; exit 1; }  
             input_normal=$(basename "$input_normal")
         fi
 
@@ -280,9 +282,9 @@ steps:
         fi
 
         if [[ ! $detect_sv == true ]]; then
-          disable_sv = "--disable_detector sv"
+          disable_sv="--disable_detector sv"
         else
-          disable_sv = ""
+          disable_sv=""
         fi
         start_time=$SECONDS
 
