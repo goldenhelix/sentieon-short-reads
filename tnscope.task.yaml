@@ -52,6 +52,13 @@ parameters:
     value: "true"
     help: Set to false to use the reference FASTA from cloud or local storage instead of copying to the working directory
 
+  - name: min_init_tumor_lod
+    label: Minimum Tumor Log Odds (Initial Pass)
+    type: float
+    value: "1"
+    help: Minimum tumor log odds in the initial pass. Default value of 1 for high sensitivity in highly mutated samples. Value of 3 can be used for UMI data and to get fewer somatic calls.
+    group: Variant Calling Parameters
+
   - name: min_base_qual
     label: Minimum Base Quality
     type: integer
@@ -80,13 +87,6 @@ parameters:
     value: "1"
     choices: ["0", "1"]
     help: Flag to enable or disable phasing in the output. The default value is 1 (on).
-    group: Variant Calling Parameters
-
-  - name: min_init_tumor_lod
-    label: Minimum Tumor Log Odds (Initial Pass)
-    type: float
-    value: "1"
-    help: Minimum tumor log odds in the initial pass. 
     group: Variant Calling Parameters
 
   - name: min_init_normal_lod

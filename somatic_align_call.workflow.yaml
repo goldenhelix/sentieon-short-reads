@@ -110,6 +110,12 @@ stages:
         stage: Alignment with BWA-MEM
         stage_parameter_expression: "${ref_fasta}"
 
+      - name: min_init_tumor_lod
+        label: Minimum Tumor Log Odds (Initial Pass)
+        type: float
+        value: "1"
+        help: Minimum tumor log odds in the initial pass. Default value of 1 for high sensitivity in highly mutated samples. Value of 3 can be used for UMI data and to get fewer somatic calls.
+
   - name: Create VarSeq Project
     run_step: optional_default_skip
     description: Create a VarSeq project from the alignment and variant calling results
