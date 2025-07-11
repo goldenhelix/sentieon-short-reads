@@ -201,7 +201,7 @@ steps:
       image: registry.goldenhelix.com/public/sentieon:202503
     args:
       - |-
-        set -euox pipefail
+        set -eu pipefail
 
         # License configuration
         export SENTIEON_LICENSE="$GH_SERVER:8990"
