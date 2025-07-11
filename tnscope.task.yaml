@@ -201,7 +201,7 @@ steps:
       image: registry.goldenhelix.com/public/sentieon:202503
     args:
       - |-
-        set -eu pipefail
+        set -euox pipefail
 
         # License configuration
         export SENTIEON_LICENSE="$GH_SERVER:8990"
@@ -243,8 +243,10 @@ steps:
         echo "Copying input files to workdir..."
         echo "Available space in workdir: $(df -h /scratch | awk 'NR==2 {print $4}')"
         cp "$input_tumor" . || { echo "Failed to copy tumor files to workdir"; exit 1; }
+        input_tumor=$(basename "$input_tumor")
         if [ $tumor_only = false ]; then
             cp "$input_normal" . || { echo "Failed to copy normal files to workdir"; exit 1; }
+            input_normal=$(basename "$input_normal")
         fi
 
         # Copy reference FASTA locally for better performance
@@ -277,6 +279,11 @@ steps:
             echo "*************************"
         fi
 
+        if [[ ! $detect_sv == true ]]; then
+          disable_sv = "--disable_detector sv"
+        else
+          disable_sv = ""
+        fi
         start_time=$SECONDS
 
         # Run TNscope variant calling
@@ -303,7 +310,7 @@ steps:
             --pcr_indel_model $pcr_indel_model \
             --min_base_qual $min_base_qual \
             ${detect_sv:+--sv_mask_ext $sv_mask_ext} \
-            ${detect_sv:---disable_detector sv} \
+            ${disable_sv} \
             --tumor_sample "$tumor_sample_name" \
             ${input_normal:+--normal_sample "$normal_sample_name"} \
             "$tumor_vcf" || { echo "TNscope variant calling failed"; exit 1; }
