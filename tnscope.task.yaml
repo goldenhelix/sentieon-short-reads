@@ -85,7 +85,7 @@ parameters:
   - name: min_init_tumor_lod
     label: Minimum Tumor Log Odds (Initial Pass)
     type: float
-    value: "4"
+    value: "1"
     help: Minimum tumor log odds in the initial pass. 
     group: Variant Calling Parameters
 
