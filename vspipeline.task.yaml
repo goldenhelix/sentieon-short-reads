@@ -55,6 +55,16 @@ steps:
         if [ -d "/scratch" ]; then
           export GH_TEMPDIR="/scratch"
         fi
+        
+        if [ ! -f "$project_template" ]; then
+          echo "Error: Project template file '$project_template' does not exist."
+          exit 1
+        fi
+
+        if ! grep -q "\"genome\": \"$GH_WORKSPACE_ASSEMBLY\"" "$project_template"; then
+          echo "Error: Project template does not match the current workspace assembly: $GH_WORKSPACE_ASSEMBLY"
+          exit 1
+        fi
 
         # Create parent directory if it doesn't exist, and check for project directory
         mkdir -p ${project_directory}
