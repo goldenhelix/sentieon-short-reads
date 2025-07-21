@@ -48,6 +48,7 @@ steps:
       - |-
         set -eu pipefail
 
+        # Set up environment variables from workspace defaults
         export GOLDENHELIX_USERDATA=${WORKSPACE_DIR}/AppData
         if [ -d "$WORKSPACE_DIR/AppData/VarSeq/User Data" ]; then
           export GH_CRASH_DUMP_DIR="$WORKSPACE_DIR/AppData/VarSeq/User Data"
@@ -56,11 +57,11 @@ steps:
           export GH_TEMPDIR="/scratch"
         fi
         
+        # Check if project template exists and matches the current workspace assembly
         if [ ! -f "$project_template" ]; then
           echo "Error: Project template file '$project_template' does not exist."
           exit 1
         fi
-
         if ! grep -q "\"genome\": \"$GH_WORKSPACE_ASSEMBLY\"" "$project_template"; then
           echo "Error: Project template does not match the current workspace assembly: $GH_WORKSPACE_ASSEMBLY"
           exit 1
@@ -88,7 +89,7 @@ steps:
         cat <<EOF > create-project.vs-batch
         get_version
         project_create "${project_directory}/${project_name}" "${project_template}" ${overwrite_project:+overwrite=true}
-        import files="${vcf_files}" append_files_with_same_samples=True
+        import files="${vcf_files}" append_files_with_same_samples=True sample_fields_catalog=SampleCatalog
         download_required_sources
         task_wait
         get_task_list
