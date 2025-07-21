@@ -1,5 +1,6 @@
 name: Alignment with BWA-MEM
 description: BWA Mem alignment on one or more FASTQ files for a single sample
+auto_generate_session_for_account: "{workspaceBot}"
 
 parameters:
   - name: sample_name
@@ -103,6 +104,7 @@ steps:
     args:
       - |-
         set -eu pipefail
+        exit 0 
 
         # License configuration
         export SENTIEON_LICENSE="$GH_SERVER:8990"
@@ -426,6 +428,8 @@ steps:
         
         fi  
 
+        output_bam_path=""
+
         if [ $perform_dedup == true ]; then
 
           start_time=$SECONDS
@@ -447,6 +451,7 @@ steps:
           fi
 
           duration=$((SECONDS - start_time))
+          output_bam_path="${sample_name}_deduped${align_extension}"
           echo "Deduplication completed in $duration seconds"
 
         else
@@ -473,6 +478,7 @@ steps:
               { echo "Merging failed"; exit 1; }
           fi
 
+          output_bam_path="${sample_name}_sorted${align_extension}"
           duration=$((SECONDS - start_time))
           echo "File operation completed in $duration seconds"
         fi
@@ -485,3 +491,32 @@ steps:
         fi
 
         cp -f ${sample_name}_bwa_run.log "$output_folder"/
+
+  - name: update_sample_catalog
+    description: Add BWA-MEM Output to Sample Catalog
+    type: cmd
+    docker:
+      image: ${VSPIPELINE_DOCKER_IMAGE}
+    args:
+      - |-
+        set -euox pipefail
+
+        export GOLDENHELIX_USERDATA=${WORKSPACE_DIR}/AppData
+
+        cd "${output_folder}"
+        if [[ $cram == true ]]; then
+          align_extension=".cram"
+        else
+          align_extension=".bam"
+        fi
+        if [[ $perform_dedup == true ]]; then
+          output_bam_path="${output_folder//${WORKSPACE_DIR}\//}/${sample_name}_deduped${align_extension}"
+        else
+          output_bam_path="${output_folder//${WORKSPACE_DIR}\//}/${sample_name}_sorted${align_extension}"
+        fi
+        echo "Updating sample $sample_name with BAM: ${output_bam_path}"
+        gautil client catalog-upsert SampleCatalog \
+          Sample="$sample_name" \
+          BAMPath="$output_bam_path" || \
+          { echo "Failed to update sample catalog"; exit 1; }
+        echo "Sample catalog updated"
