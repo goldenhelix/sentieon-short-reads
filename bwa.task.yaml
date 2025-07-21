@@ -104,7 +104,6 @@ steps:
     args:
       - |-
         set -eu pipefail
-        exit 0 
 
         # License configuration
         export SENTIEON_LICENSE="$GH_SERVER:8990"
@@ -499,7 +498,7 @@ steps:
       image: ${VSPIPELINE_DOCKER_IMAGE}
     args:
       - |-
-        set -euox pipefail
+        set -eu pipefail
 
         export GOLDENHELIX_USERDATA=${WORKSPACE_DIR}/AppData
 
