@@ -91,9 +91,14 @@ steps:
         # Collect parameters
 
         # Parse list of input files by cutting list on commas
-        input_files=(
-          $(echo "$input_file" | tr ',' '\n')
-        )
+        # Handle both single files and comma-separated lists properly
+        if [[ "$input_file" == *,* ]]; then
+          # Multiple files separated by commas
+          IFS=',' read -ra input_files <<< "$input_file"
+        else
+          # Single file - create array with single element
+          input_files=("$input_file")
+        fi
         for file in "${input_files[@]}"; do
           echo "Input file: $file"
         done
