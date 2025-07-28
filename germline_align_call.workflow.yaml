@@ -17,12 +17,14 @@ stages:
           expression: '${file_directory}'
         - task_parameter_name: sample_name
           expression: '${2}'
+      help: "The folder containing the FASTQ file(s) to align. \nThe number of samples (and therefore the number of runs) is determined by the number of files matching the glob expression. \nSee the glob expression help section for help with writing glob expressions to match your data."
       
     task_parameters:
       - name: output_folder 
         label: Output Folder
         type: directory
         supports_location_mode: 'no_append'
+        help: "The output folder for alignment results. This folder will also be used for the output location for the variant-calling step. NOTE: This folder will *not* be used for the output VarSeq project, should the VSPipeline step be selected. Projecst are automatically output to AppData/Projects."
 
       - name: model_base_path
         label: Sentieon Models Base Path
@@ -30,6 +32,7 @@ stages:
         type: directory
         supports_location_mode: 'read_only'
         optional: true
+        help: "Optionally specify the Sentieon models base path. If not provided, the default models base path will be used. Note that the default models base path must be downloaded and set appropriately. This is only if you select a machine learning model."
 
       - name: ml_model
         value: "None"
@@ -39,6 +42,7 @@ stages:
                   MGI WES 2.0, MGI WGS 2.0, Salus WES 1.0, Salus WGS 1.0, 
                   Ultima Genomics WGS 1.0]
         optional: false
+        help: "The Sentieon machine learning model to use for improvements to speed and accuracy for alignment and variant-calling. Leave as None if your data does not match any of the available options. See Sentieon's GitHub page for more information."
 
       - name: ref_fasta
         label: Reference File (FASTA)
@@ -102,6 +106,7 @@ stages:
         label: Copy Reference FASTA to Working Directory 
         type: boolean
         value: "false"
+        help: "If enabled, the reference FASTA will be copied to the working directory before the variant-calling step. This is likely to yield better performance for larger input files."
 
   - name: Create VarSeq project
     description: Create a project with called variants
@@ -121,6 +126,7 @@ stages:
         label: Project Name
         type: string
         optional: true
+        help: "The name of the VarSeq project to create. If not provided, the project name will be derived from the sample name derived from the glob expression."
 
       - name: project_template
         label: VarSeq Project Template
@@ -133,3 +139,4 @@ stages:
         label: Overwrite Existing VarSeq Projects
         type: boolean
         value: "true"
+        help: "If enabled, existing VarSeq projects with the same name will be overwritten."

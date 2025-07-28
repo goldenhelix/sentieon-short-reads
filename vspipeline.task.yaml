@@ -31,6 +31,7 @@ parameters:
     help: The template to use for the VarSeq project
     type: file
     supports_location_mode: 'read_only'
+    path: /AppData/VarSeq/User Data/ProjectTemplates/
 
   - name: overwrite_project
     label: Overwrite Existing VarSeq Projects
