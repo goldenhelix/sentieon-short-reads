@@ -86,8 +86,13 @@ steps:
         cd ${base_path}
         vcf_files=$(find . -name "*.vcf.gz" -type f | paste -sd ',' - | sed 's/\([^,]*\)/"\1"/g')
 
+        if [[ -z "${vcf_files}" ]]; then
+          echo "No VCF files found in the specified directory."
+          exit 1
+        fi
+        
         # Write the VSPipeline commands to a file
-        cat <<EOF > create-project.vs-batch
+        cat <<EOF > "${project_directory}/${project_name}.vs-batch"
         get_version
         project_create "${project_directory}/${project_name}" "${project_template}" ${overwrite_project:+overwrite=true}
         import files="${vcf_files}" append_files_with_same_samples=True sample_fields_catalog=SampleCatalog
@@ -97,6 +102,6 @@ steps:
         project_close
         EOF
 
-        /opt/vspipeline/vspipeline -c batch file=create-project.vs-batch || { echo "VSPipeline failed"; exit 1; }
+        /opt/vspipeline/vspipeline -c batch file="${project_directory}/${project_name}.vs-batch" || { echo "VSPipeline failed"; exit 1; }
 
-        rm -rf create-project.vs-batch
+        rm -rf "${project_directory}/${project_name}.vs-batch"

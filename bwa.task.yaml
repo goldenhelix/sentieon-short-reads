@@ -513,9 +513,9 @@ steps:
         else
           output_bam_path="${output_folder//${WORKSPACE_DIR}\//}/${sample_name}_sorted${align_extension}"
         fi
-        echo "Updating sample $sample_name with BAM: ${output_bam_path}"
         gautil client catalog-upsert SampleCatalog \
           Sample="$sample_name" \
           BAMPath="$output_bam_path" || \
           { echo "Failed to update sample catalog"; exit 1; }
-        echo "Sample catalog updated"
+        echo "Updated sample $sample_name with BAM: ${output_bam_path}"
+
