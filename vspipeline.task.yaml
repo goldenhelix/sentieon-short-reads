@@ -22,7 +22,7 @@ parameters:
 
   - name: project_name
     label: Project Name
-    help: The name of the VarSeq project to create
+    help: The name of the VarSeq project to create. If left blank, the name of the input folder will be used.
     type: string
     optional: true
 
