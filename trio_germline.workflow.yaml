@@ -15,7 +15,10 @@ stages:
       output_parameters:
         - task_parameter_name: input_folder
           expression: '${file_directory}'
-      
+        - task_parameter_name: sample_name
+          expression: '${2}'
+      help: "The folder containing the FASTQ file(s) to align. \nThe number of samples (and therefore the number of runs) is determined by the number of files matching the glob expression. \nSee the glob expression help section for help with writing glob expressions to match your data."
+            
     task_parameters:
       - name: output_folder 
         label: Output Folder
@@ -63,7 +66,7 @@ stages:
         stage: Alignment with BWA-MEM
         stage_parameter_expression: "${output_folder}"
 
-      - name: sample_types
+      - name: sample_type
         label: Sample Type
         type: stage
         stage: Generate Batch Parameter File for Family Joint Calling

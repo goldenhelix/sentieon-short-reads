@@ -94,7 +94,14 @@ steps:
         # Handle both single files and comma-separated lists properly
         if [[ "$input_file" == *,* ]]; then
           # Multiple files separated by commas
-          IFS=',' read -ra input_files <<< "$input_file"
+          IFS=',' read -ra temp_input_files <<< "$input_file"
+          # Filter out empty strings
+          input_files=()
+          for file in "${temp_input_files[@]}"; do
+            if [ ! -z "$file" ]; then
+              input_files+=("$file")
+            fi
+          done
         else
           # Single file - create array with single element
           input_files=("$input_file")
