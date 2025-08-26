@@ -62,12 +62,6 @@ parameters:
     value: "false"
     help: Set to true to run joint-calling for each set of inputs
 
-  - name: copy_fasta_to_workdir
-    label: Copy Reference FASTA to Working Directory
-    type: boolean
-    value: "true"
-    help: Set to false to use the reference FASTA from cloud or local storage instead of copying to the working directory
-
 agent_requirements:
   cpu_cores: 16
   memory_gb: 16
@@ -79,7 +73,7 @@ steps:
     docker:
       image: registry.goldenhelix.com/public/sentieon:202503
     args:
-      - |-
+      - |- # shell
         set -eu pipefail
 
         # License configuration
@@ -212,14 +206,15 @@ steps:
           cp "$input_file"* . || { echo "Failed to copy input files to workdir"; exit 1; }
 
           # Copy reference FASTA locally for better performance
-          if [ "$copy_fasta_to_workdir" = true ]; then
+          # Check if workspace-level variable disables copying (for fast local network drives)
+          if [ "${DISABLE_FASTA_COPY_TO_SCRATCH:-false}" = "true" ]; then
+            echo "Using reference FASTA from resource storage (copy disabled by workspace setting)..."
+            local_ref_fasta="$ref_fasta"
+          else
             echo "Copying reference FASTA to workdir..."
             cp "$ref_fasta" . || { echo "Failed to copy reference FASTA"; exit 1; }
             cp "$ref_fasta".fai . || { echo "Failed to copy reference FASTA index"; exit 1; }
             local_ref_fasta=$(basename "$ref_fasta")
-          else
-            echo "Using reference FASTA from resource storage..."
-            local_ref_fasta="$ref_fasta"
           fi
 
           # Construct extra parameters based on settings

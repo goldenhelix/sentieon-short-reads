@@ -102,7 +102,7 @@ steps:
     docker:
       image: registry.goldenhelix.com/public/sentieon:202503
     args:
-      - |-
+      - |- # shell
         set -eu pipefail
 
         # License configuration
