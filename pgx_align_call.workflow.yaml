@@ -98,11 +98,6 @@ stages:
         stage: Alignment with BWA-MEM
         stage_parameter_expression: "${ref_fasta}"
 
-      - name: copy_fasta_to_workdir
-        label: Copy Reference FASTA to Working Directory 
-        type: boolean
-        value: "false"
-
   - name: CYP2D6 Genotyping with CypCall
     description: CYP2D6 genotyping from an alignment file with CypCall
     task_path: cypcall.task.yaml

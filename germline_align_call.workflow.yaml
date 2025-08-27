@@ -102,12 +102,6 @@ stages:
         stage: Alignment with BWA-MEM
         stage_parameter_expression: "${ref_fasta}"
 
-      - name: copy_fasta_to_workdir
-        label: Copy Reference FASTA to Working Directory 
-        type: boolean
-        value: "false"
-        help: "If enabled, the reference FASTA will be copied to the working directory before the variant-calling step. This is likely to yield better performance for larger input files."
-
   - name: Create VarSeq project
     description: Create a project with called variants
     run_step: optional_default_skip

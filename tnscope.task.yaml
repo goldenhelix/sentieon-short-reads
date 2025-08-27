@@ -46,12 +46,6 @@ parameters:
     supports_location_mode: 'read_only'
     optional: true
 
-  - name: copy_fasta_to_workdir
-    label: Copy Reference FASTA to Working Directory
-    type: boolean
-    value: "true"
-    help: Set to false to use the reference FASTA from cloud or local storage instead of copying to the working directory
-
   - name: min_init_tumor_lod
     label: Minimum Tumor Log Odds (Initial Pass)
     type: float
