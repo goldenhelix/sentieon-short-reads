@@ -54,13 +54,20 @@ parameters:
     label: Output GVCF
     type: boolean
     value: "false"
-    help: Set to true to output GVCF format instead of VCF
+    help: Set to true to output GVCF format instead of VCF. Mutually exclusive with must-call VCF.
 
   - name: joint_calling
     label: Joint Calling
     type: boolean
     value: "false"
-    help: Set to true to run joint-calling for each set of inputs
+    help: Set to true to run joint-calling for each set of inputs. Output defaults to gVCF if selected. Mutually exclusive with must-call VCF.
+
+  - name: must_call_vcf
+    label: Must-Call VCF
+    type: file
+    optional: true
+    help: "The must-call VCF file used for PGx diplotyping downstream. If not provided, it will be ommitted. Mutually exclusive with joint-calling and gVCF output."
+
 
 agent_requirements:
   cpu_cores: 16
@@ -82,7 +89,24 @@ steps:
         num_threads=$AGENT_CPU_CORES
         workdir="/scratch"
 
-        # Collect parameters
+        # Collect parameters and validate mutual exclusivity
+        if [[ "$joint_calling" = true ] && [ ! -z "$must_call_vcf" ]]; then
+          echo "ERROR: Must-call VCF is not supported for joint calling"
+          echo "Please remove the must-call VCF file and re-run the task"
+          exit 1
+        fi
+        
+        if [[ "$output_gvcf" = true ] && [ ! -z "$must_call_vcf" ]]; then
+          echo "ERROR: Must-call VCF is not supported for gVCF output"
+          echo "Please remove the must-call VCF file and re-run the task"
+          exit 1
+        fi
+        
+        # Ensure output_gvcf is set to true if joint_calling is true
+        if [ "$joint_calling" = true ]; then
+          output_gvcf="true"
+          echo "Joint calling enabled - automatically setting output_gvcf to true"
+        fi
 
         # Parse list of input files by cutting list on commas
         # Handle both single files and comma-separated lists properly
@@ -175,6 +199,9 @@ steps:
 
         esac
 
+        # Initialize GVCF inputs list for joint calling
+        GVCF_INPUTS=""
+        
         # Run analysis for each input file
         for input_file in "${input_files[@]}"; do
 
@@ -222,7 +249,9 @@ steps:
           if [ "$pcr_free" = true ]; then
               extra_params="$extra_params --pcr_indel_model none"
           fi
-          if [ "$output_gvcf" = true ]; then
+          
+          # Set output format based on joint calling or user preference
+          if [ "$joint_calling" = true ] || [ "$output_gvcf" = true ]; then
               extra_params="$extra_params --emit_mode gvcf"
               output_suffix="g.vcf.gz"
           else
@@ -239,31 +268,145 @@ steps:
           echo "Memory:        $AGENT_MEMORY_GB GB"
           echo "PCR Free:      $pcr_free"
           echo "Output GVCF:   $output_gvcf"
+          echo "Joint Calling: $joint_calling"
           echo "*************************"
 
           # Run DNAscope variant calling
           start_time=$SECONDS
 
-          if [[ ! -z "$model_path" ]]; then
-            sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
-              --algo DNAscope --model "$model_path/dnascope.model" $extra_params \
-              "${sample_name}_dnascope_tmp.$output_suffix" || \
-              { echo "DNAscope variant calling failed"; exit 1; }
+          # Check if must-call VCF is provided
+          if [ ! -z "$must_call_vcf" ]; then
+            echo "*************************"
+            echo "DNAscope Variant Caller with must calls"
+            echo "*************************"
+            
+            # Copy must-call VCF to workdir
+            cp "$must_call_vcf" . || { echo "Failed to copy must-call VCF"; exit 1; }
+            local_must_call_vcf=$(basename "$must_call_vcf")
+            
+            # Run DNAscope with must-call VCF
+            if [[ ! -z "$model_path" ]]; then
+              sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
+                --algo DNAscope --model "$model_path/dnascope.model" \
+                --given "$local_must_call_vcf" \
+                --emit_conf=10 \
+                --call_conf=30 \
+                "${sample_name}_dnascope_pgx_tmp.vcf.gz" || \
+                { echo "DNAscope variant calling with must-call failed"; exit 1; }
 
-            sentieon driver -r "$local_ref_fasta" -t $num_threads --temp_dir "$workdir" \
-              --algo DNAModelApply --model "$model_path/dnascope.model" \
-              -v "${sample_name}_dnascope_tmp.$output_suffix" "${output_folder}/${sample_name}_dnascope.$output_suffix" || \
-              { echo "DNAModelApply failed"; exit 1; }
+              sentieon driver -r "$local_ref_fasta" -t $num_threads --temp_dir "$workdir" \
+                --algo DNAModelApply --model "$model_path/dnascope.model" \
+                -v "${sample_name}_dnascope_pgx_tmp.vcf.gz" "${sample_name}_dnascope_pgx.vcf.gz" || \
+                { echo "DNAModelApply for must-call failed"; exit 1; }
+            else
+              sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
+                --algo DNAscope \
+                --given "$local_must_call_vcf" \
+                --emit_conf=10 \
+                --call_conf=30 \
+                "${sample_name}_dnascope_pgx.vcf.gz" || \
+                { echo "DNAscope variant calling with must-call failed"; exit 1; }
+            fi
+            
+            # Run DNAscope for regular variant calling
+            if [[ ! -z "$model_path" ]]; then
+              sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
+                --algo DNAscope --model "$model_path/dnascope.model" \
+                --emit_conf=10 \
+                --emit_mode="variant" \
+                --call_conf=30 \
+                "${sample_name}_dnascope_tmp.vcf.gz" || \
+                { echo "DNAscope variant calling failed"; exit 1; }
+
+              sentieon driver -r "$local_ref_fasta" -t $num_threads --temp_dir "$workdir" \
+                --algo DNAModelApply --model "$model_path/dnascope.model" \
+                -v "${sample_name}_dnascope_tmp.vcf.gz" "${sample_name}_dnascope.vcf.gz" || \
+                { echo "DNAModelApply failed"; exit 1; }
+            else
+              sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
+                --algo DNAscope \
+                --emit_conf=10 \
+                --emit_mode="variant" \
+                --call_conf=30 \
+                "${sample_name}_dnascope.vcf.gz" || \
+                { echo "DNAscope variant calling failed"; exit 1; }
+            fi
+            
+            # Merge the two VCF files
+            bcftools concat "${sample_name}_dnascope.vcf.gz" "${sample_name}_dnascope_pgx.vcf.gz" --rm-dups all -a -O v -o "${sample_name}_dnascope_merged.vcf" || \
+              { echo "bcftools concat failed"; exit 1; }
+            bgzip "${sample_name}_dnascope_merged.vcf" || \
+              { echo "bgzip failed"; exit 1; }
+            
+            # Move final output to output folder
+            mv "${sample_name}_dnascope_merged.vcf.gz" "${output_folder}/${sample_name}_dnascope.vcf.gz" || \
+              { echo "Failed to move merged VCF to output folder"; exit 1; }
+            
           else
-            sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
-              --algo DNAscope $extra_params \
-              "${output_folder}/${sample_name}_dnascope.$output_suffix" || \
-              { echo "DNAscope variant calling failed"; exit 1; }
+            # Standard DNAscope calling without must-call
+            if [[ ! -z "$model_path" ]]; then
+              sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
+                --algo DNAscope --model "$model_path/dnascope.model" $extra_params \
+                "${sample_name}_dnascope_tmp.$output_suffix" || \
+                { echo "DNAscope variant calling failed"; exit 1; }
+
+              sentieon driver -r "$local_ref_fasta" -t $num_threads --temp_dir "$workdir" \
+                --algo DNAModelApply --model "$model_path/dnascope.model" \
+                -v "${sample_name}_dnascope_tmp.$output_suffix" "${output_folder}/${sample_name}_dnascope.$output_suffix" || \
+                { echo "DNAModelApply failed"; exit 1; }
+            else
+              sentieon driver -r "$local_ref_fasta" -t $num_threads -i "$input_basename" --temp_dir "$workdir" \
+                --algo DNAscope $extra_params \
+                "${output_folder}/${sample_name}_dnascope.$output_suffix" || \
+                { echo "DNAscope variant calling failed"; exit 1; }
+            fi
           fi
 
           duration=$((SECONDS - start_time))
-          file_size=$(stat -c%s "${output_folder}/${sample_name}_dnascope.$output_suffix")
-          echo "${sample_name}_dnascope.$output_suffix ($file_size bytes) called in $duration seconds"
+          
+          # Calculate file size based on output type
+          if [ ! -z "$must_call_vcf" ]; then
+            output_file="${output_folder}/${sample_name}_dnascope.vcf.gz"
+          else
+            output_file="${output_folder}/${sample_name}_dnascope.$output_suffix"
+          fi
+          
+          file_size=$(stat -c%s "$output_file")
+          echo "$(basename "$output_file") ($file_size bytes) called in $duration seconds"
           cp -f ${sample_name}_dnascope_run.log "$output_folder"/
 
+          # Add GVCF to joint calling inputs if joint calling is enabled
+          if [ "$joint_calling" = true ]; then
+            if [ ! -z "$must_call_vcf" ]; then
+              # Must-call mode doesn't support joint calling, but we'll add the merged VCF for consistency
+              GVCF_INPUTS="$GVCF_INPUTS -v ${output_folder}/${sample_name}_dnascope.vcf.gz"
+            else
+              GVCF_INPUTS="$GVCF_INPUTS -v ${output_folder}/${sample_name}_dnascope.$output_suffix"
+            fi
+          fi
+
         done
+
+        # ******************************************
+        # Perform joint calling if enabled
+        # ******************************************
+        if [ "$joint_calling" = true ]; then
+          echo "*************************"
+          echo "Performing joint calling..."
+          echo "GVCF Inputs: $GVCF_INPUTS"
+          echo "*************************"
+          
+          # Use the reference FASTA from the last iteration
+          if [ "${DISABLE_FASTA_COPY_TO_SCRATCH:-false}" = "true" ]; then
+            joint_ref_fasta="$ref_fasta"
+          else
+            joint_ref_fasta="$local_ref_fasta"
+          fi
+          
+          # Run GVCFtyper for joint calling
+          sentieon driver -r "$joint_ref_fasta" --algo GVCFtyper $GVCF_INPUTS \
+            "${output_folder}/joint_called.vcf.gz" || \
+            { echo "GVCFtyper failed"; exit 1; }
+          
+          echo "Joint calling completed successfully: ${output_folder}/joint_called.vcf.gz"
+        fi
