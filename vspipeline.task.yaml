@@ -31,7 +31,7 @@ parameters:
     help: The template to use for the VarSeq project
     type: file
     supports_location_mode: 'read_only'
-    path: /AppData/VarSeq/User Data/ProjectTemplates/
+    path: AppData/VarSeq/User Data/ProjectTemplates/
 
   - name: overwrite_project
     label: Overwrite Existing VarSeq Projects
@@ -68,7 +68,7 @@ steps:
           exit 1
         fi
 
-        # Create parent directory if it doesn't exist, and check for project directory
+        # Create project directory if it doesn't exist, and check for project directory
         mkdir -p ${project_directory}
         if [[ -d "${project_directory}/${project_name}" && "${overwrite_project}" == "false" ]]; then
           echo "Project directory already exists and overwrite is set to false"
@@ -84,9 +84,9 @@ steps:
         echo "Output path: ${project_directory}/${project_name}"
 
         cd "${base_path}"
-        vcf_files=$(find . -name "*.vcf.gz" -type f | paste -sd ',' - | sed 's/\([^,]*\)/\1/g')
+        variant_files=$(find . -name "*.vcf.gz" -type f | paste -sd ',' - | sed 's/\([^,]*\)/\1/g')
 
-        if [[ -z "${vcf_files}" ]]; then
+        if [[ -z "${variant_files}" ]]; then
           echo "No VCF files found in the specified directory."
           exit 1
         fi
@@ -95,7 +95,7 @@ steps:
         cat <<EOF > "${project_directory}/${project_name}.vs-batch"
         get_version
         project_create "${project_directory}/${project_name}" "${project_template}" ${overwrite_project:+overwrite=true}
-        import files="${vcf_files}" append_files_with_same_samples=True sample_fields_catalog=SampleCatalog
+        import files="${variant_files}" append_files_with_same_samples=True sample_fields_catalog=SampleCatalog
         download_required_sources
         task_wait
         get_task_list

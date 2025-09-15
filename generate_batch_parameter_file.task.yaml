@@ -26,7 +26,7 @@ steps:
     docker:
       image: ${VSPIPELINE_DOCKER_IMAGE}
     args:
-      - |-
+      - |- # shell
         set -eu pipefail
 
         # Create output file

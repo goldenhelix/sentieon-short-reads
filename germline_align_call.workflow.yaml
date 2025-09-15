@@ -88,6 +88,7 @@ stages:
         type: stage
         stage: Alignment with BWA-MEM
         stage_parameter_expression: "${model_base_path}"
+        optional: true
 
       - name: ml_model
         label: Machine Learning Model

@@ -42,7 +42,7 @@ parameters:
     group: Advanced Options 
     type: directory
     supports_location_mode: 'read_only'
-    value: "CloudStorage/resources/sentieon_models"
+    optional: true
 
   - name: pcr_free
     label: PCR Free Sample
