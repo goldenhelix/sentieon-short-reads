@@ -98,6 +98,20 @@ stages:
         stage: Alignment with BWA-MEM
         stage_parameter_expression: "${ref_fasta}"
 
+      - name: must_call_vcf
+        label: PGX Must-Call VCF
+        type: file
+        supports_location_mode: 'read_only'
+        optional: true
+        help: "The must-call VCF file used for PGx diplotyping downstream. If not provided, it will be ommitted. Mutually exclusive with joint-calling and gVCF output."
+
+      - name: use_must_call_vcf
+        label: Use Must-Call VCF
+        type: stage
+        stage: Variant Calling with DNAscope
+        stage_parameter_expression: "true"
+        help: "Enable must-call VCF for PGx diplotyping."
+
   - name: CYP2D6 Genotyping with CypCall
     description: CYP2D6 genotyping from an alignment file with CypCall
     task_path: cypcall.task.yaml
