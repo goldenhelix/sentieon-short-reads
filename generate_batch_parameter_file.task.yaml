@@ -29,6 +29,8 @@ steps:
       - |- # shell
         set -eu pipefail
 
+        cd /scratch
+
         # Create output file
         if [ "$sample_type" == "Family" ]; then
             # Use a TSV file to store family relationships
