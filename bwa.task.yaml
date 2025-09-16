@@ -2,6 +2,10 @@ name: Alignment with BWA-MEM
 description: BWA Mem alignment on one or more FASTQ files for a single sample
 auto_generate_session_for_account: "{workspaceBot}"
 
+agent_requirements:
+  cpu_cores: 16
+  memory_gb: 32
+
 parameters:
   - name: sample_name
     label: Sample Name
@@ -89,11 +93,6 @@ parameters:
     type: integer
     group: BWA-MEM Options
     value: "10000000"
-
-agent_requirements:
-  cpu_cores: 16
-  memory_gb: 32
-  # agent_profile: azure_extra_large
 
 steps:
   - name: bwa-mem

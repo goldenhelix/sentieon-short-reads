@@ -34,7 +34,7 @@ steps:
     docker:
       image: registry.goldenhelix.com/public/cypcall:2024-09-10
     args:
-      - |-
+      - |- # shell
         set -eu pipefail
 
         workdir="/scratch"
@@ -96,7 +96,7 @@ steps:
     docker:
       image: ${VSPIPELINE_DOCKER_IMAGE}
     args:
-      - |-
+      - |- # shell
         set -eu pipefail
 
         export GOLDENHELIX_USERDATA=${WORKSPACE_DIR}/AppData
