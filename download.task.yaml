@@ -33,6 +33,20 @@ parameters:
     group: Model Files
     type: boolean
     value: "false"
+
+  - name: download_pgx_must_call_37
+    label: PGx Must-Call VCF (GRCh37)
+    help: PGx must-call VCF for GRCh37 reference genome
+    group: Pharmacogenomics
+    type: boolean
+    value: "false"
+    
+  - name: download_pgx_must_call_38
+    label: PGx Must-Call VCF (GRCh38)
+    help: PGx must-call VCF for GRCh38 reference genome
+    group: Pharmacogenomics
+    type: boolean
+    value: "false"
     
   - name: download_hybrid_models
     label: Sentieon Hybrid Models
@@ -149,6 +163,74 @@ steps:
             return 0
         }
 
+        # Function to download and process PGx files
+        download_pgx_file() {
+            local filename=$1
+            local url=$2
+            local target_dir=$3
+            
+            # Create the target directory
+            if ! mkdir -p "$target_dir"; then
+                echo "Error: Failed to create directory $target_dir"
+                return 1
+            fi
+            
+            # Change to the target directory
+            cd "$target_dir"
+            
+            # Check if file exists and redownload is disabled
+            if [ "${redownload_existing}" != "true" ] && [ -f "$filename" ]; then
+                echo "✓ $filename already exists, skipping download"
+                return 0
+            fi
+            
+            echo "Downloading $filename..."
+            
+            # Download the file
+            rm -f "$filename"
+            curl -L -s -S --progress-bar -o "$filename" "$url"
+            curl_exit_code=$?
+            
+            # Check for curl errors
+            if [ $curl_exit_code -ne 0 ]; then
+                echo "Error: curl failed with exit code $curl_exit_code"
+                return 1
+            fi
+            
+            # Check if file exists and has content
+            if [ ! -f "$filename" ]; then
+                echo "Error: Failed to download $filename - file does not exist"
+                return 1
+            fi
+            
+            # Check if file has content (not empty)
+            if [ ! -s "$filename" ]; then
+                echo "Error: Downloaded file $filename is empty"
+                rm -f "$filename"
+                return 1
+            fi
+            
+            echo "✓ $filename successfully downloaded"
+            
+            # Process the file: gunzip, bgzip, and tabix
+            echo "Processing $filename..."
+            
+            # Gunzip the file
+            gunzip "$filename" || { echo "Error: Failed to gunzip $filename"; return 1; }
+            
+            # Get the base filename without .gz extension
+            base_filename="${filename%.gz}"
+            
+            # Bgzip the file
+            bgzip "$base_filename" || { echo "Error: Failed to bgzip $base_filename"; return 1; }
+            
+            # Tabix the file
+            tabix "$filename" || { echo "Error: Failed to tabix $filename"; return 1; }
+            
+            echo "✓ $filename successfully processed (gunzip, bgzip, tabix)"
+            return 0
+        }
+
         # Set the base target directory
         BASE_DIR="${target_directory}"
 
@@ -212,4 +294,22 @@ steps:
             BASE_URL="data.goldenhelix.com/d/secondary_analysis/models/hybrid"
             TARGET_DIR="$BASE_DIR/sentieon_models"
             download_from_manifest "$MANIFEST_URL" "$BASE_URL" "$TARGET_DIR"
+        fi
+
+        # Download PGx Must-Call VCF (GRCh37)
+        if [ "${download_pgx_must_call_37}" = "true" ]; then
+            echo "=== Downloading PGx Must-Call VCF (GRCh37) ==="
+            FILENAME="pgx_must_call_37.vcf.gz"
+            URL="https://data.goldenhelix.com/d/secondary_analysis/pgx_variants/pgx_must_call_37.vcf.gz"
+            TARGET_DIR="$BASE_DIR/pgx"
+            download_pgx_file "$FILENAME" "$URL" "$TARGET_DIR"
+        fi
+
+        # Download PGx Must-Call VCF (GRCh38)
+        if [ "${download_pgx_must_call_38}" = "true" ]; then
+            echo "=== Downloading PGx Must-Call VCF (GRCh38) ==="
+            FILENAME="pgx_must_call_38.vcf.gz"
+            URL="https://data.goldenhelix.com/d/secondary_analysis/pgx_variants/pgx_must_call_38.vcf.gz"
+            TARGET_DIR="$BASE_DIR/pgx"
+            download_pgx_file "$FILENAME" "$URL" "$TARGET_DIR"
         fi
