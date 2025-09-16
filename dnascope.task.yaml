@@ -62,11 +62,18 @@ parameters:
     value: "false"
     help: Set to true to run joint-calling for each set of inputs. Output defaults to gVCF if selected. Mutually exclusive with must-call VCF.
 
+  - name: use_must_call_vcf
+    label: Use Must-Call VCF
+    type: boolean
+    value: "false"
+    help: "Enable must-call VCF for PGx diplotyping downstream. Mutually exclusive with joint-calling and gVCF output."
+
   - name: must_call_vcf
-    label: Must-Call VCF
+    label: Must-Call VCF File
     type: file
+    supports_location_mode: 'read_only'
     optional: true
-    help: "The must-call VCF file used for PGx diplotyping downstream. If not provided, it will be ommitted. Mutually exclusive with joint-calling and gVCF output."
+    help: "The must-call VCF file used for PGx diplotyping downstream. Only relevant if 'Use Must-Call VCF' is set to true. If not provided, will use default from workspace resources."
 
 
 agent_requirements:
@@ -90,20 +97,20 @@ steps:
         workdir="/scratch"
 
         # Collect parameters and validate mutual exclusivity
-        if [[ "$joint_calling" = true ] && [ ! -z "$must_call_vcf" ]]; then
+        if [[ "$joint_calling" = true ]] && [[ "$use_must_call_vcf" = true ]]; then
           echo "ERROR: Must-call VCF is not supported for joint calling"
-          echo "Please remove the must-call VCF file and re-run the task"
+          echo "Please disable must-call VCF and re-run the task"
           exit 1
         fi
         
-        if [[ "$output_gvcf" = true ] && [ ! -z "$must_call_vcf" ]]; then
+        if [[ "$output_gvcf" = true ]] && [[ "$use_must_call_vcf" = true ]]; then
           echo "ERROR: Must-call VCF is not supported for gVCF output"
-          echo "Please remove the must-call VCF file and re-run the task"
+          echo "Please disable must-call VCF and re-run the task"
           exit 1
         fi
         
         # Ensure output_gvcf is set to true if joint_calling is true
-        if [ "$joint_calling" = true ]; then
+        if [[ "$joint_calling" = true ]]; then
           output_gvcf="true"
           echo "Joint calling enabled - automatically setting output_gvcf to true"
         fi
@@ -140,6 +147,27 @@ steps:
             echo "The default reference file does not exist at $ref_fasta"
             echo "Please run the task Download Genomic Reference to download the reference and then re-run this task"
             exit 1
+          fi
+        fi
+
+        echo "Selecting must-call VCF file..."
+        if [ "$use_must_call_vcf" = true ]; then
+          if [ -z "$must_call_vcf" ]; then
+            echo "No must-call VCF file provided, using default must-call VCF file..."
+            # Use workspace assembly variable to select the appropriate must-call VCF
+            case "${GH_WORKSPACE_ASSEMBLY}" in
+                GRCh_37*)
+                    must_call_vcf="$WORKSPACE_DIR/${RESOURCES_PATH}/pgx/pgx_must_call_37.vcf.gz"
+                    ;;
+                *)
+                    must_call_vcf="$WORKSPACE_DIR/${RESOURCES_PATH}/pgx/pgx_must_call_38.vcf.gz"
+                    ;;
+            esac
+            if [ ! -f "$must_call_vcf" ]; then
+              echo "The default must-call VCF file does not exist at $must_call_vcf"
+              echo "Please run the task Download Genomic Reference to download the PGx must-call VCF and then re-run this task"
+              exit 1
+            fi
           fi
         fi
 
@@ -230,7 +258,8 @@ steps:
           echo "Copying input files to workdir..."
           echo "Available space in workdir: $(df -h /scratch | awk 'NR==2 {print $4}')"
           input_basename=$(basename "$input_file")
-          cp "$input_file"* . || { echo "Failed to copy input files to workdir"; exit 1; }
+          echo "Copying input file $input_file to workdir..."
+          rsync --progress "$input_file"* . || { echo "Failed to copy input files to workdir"; exit 1; }
 
           # Copy reference FASTA locally for better performance
           # Check if workspace-level variable disables copying (for fast local network drives)
@@ -239,19 +268,19 @@ steps:
             local_ref_fasta="$ref_fasta"
           else
             echo "Copying reference FASTA to workdir..."
-            cp "$ref_fasta" . || { echo "Failed to copy reference FASTA"; exit 1; }
-            cp "$ref_fasta".fai . || { echo "Failed to copy reference FASTA index"; exit 1; }
+            rsync --progress "$ref_fasta" . || { echo "Failed to copy reference FASTA"; exit 1; }
+            rsync --progress "$ref_fasta".fai . || { echo "Failed to copy reference FASTA index"; exit 1; }
             local_ref_fasta=$(basename "$ref_fasta")
           fi
 
           # Construct extra parameters based on settings
           extra_params=""
-          if [ "$pcr_free" = true ]; then
+          if [[ "$pcr_free" = true ]]; then
               extra_params="$extra_params --pcr_indel_model none"
           fi
           
           # Set output format based on joint calling or user preference
-          if [ "$joint_calling" = true ] || [ "$output_gvcf" = true ]; then
+          if [[ "$joint_calling" = true ]] || [[ "$output_gvcf" = true ]]; then
               extra_params="$extra_params --emit_mode gvcf"
               output_suffix="g.vcf.gz"
           else
@@ -274,14 +303,15 @@ steps:
           # Run DNAscope variant calling
           start_time=$SECONDS
 
-          # Check if must-call VCF is provided
-          if [ ! -z "$must_call_vcf" ]; then
+          # Check if must-call VCF is enabled
+          if [[ "$use_must_call_vcf" = true ]]; then
             echo "*************************"
             echo "DNAscope Variant Caller with must calls"
             echo "*************************"
             
             # Copy must-call VCF to workdir
-            cp "$must_call_vcf" . || { echo "Failed to copy must-call VCF"; exit 1; }
+            rsync --progress "$must_call_vcf" . || { echo "Failed to copy must-call VCF"; exit 1; }
+            rsync --progress "$must_call_vcf".tbi . || { echo "Failed to copy must-call VCF index"; exit 1; }
             local_must_call_vcf=$(basename "$must_call_vcf")
             
             # Run DNAscope with must-call VCF
@@ -365,7 +395,7 @@ steps:
           duration=$((SECONDS - start_time))
           
           # Calculate file size based on output type
-          if [ ! -z "$must_call_vcf" ]; then
+          if [ "$use_must_call_vcf" = true ]; then
             output_file="${output_folder}/${sample_name}_dnascope.vcf.gz"
           else
             output_file="${output_folder}/${sample_name}_dnascope.$output_suffix"
@@ -377,7 +407,7 @@ steps:
 
           # Add GVCF to joint calling inputs if joint calling is enabled
           if [ "$joint_calling" = true ]; then
-            if [ ! -z "$must_call_vcf" ]; then
+            if [ "$use_must_call_vcf" = true ]; then
               # Must-call mode doesn't support joint calling, but we'll add the merged VCF for consistency
               GVCF_INPUTS="$GVCF_INPUTS -v ${output_folder}/${sample_name}_dnascope.vcf.gz"
             else
