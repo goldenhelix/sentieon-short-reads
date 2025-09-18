@@ -20,17 +20,10 @@ stages:
       help: "The folder containing the FASTQ file(s) to align. \nThe number of samples (and therefore the number of runs) is determined by the number of files matching the glob expression. \nSee the glob expression help section for help with writing glob expressions to match your data."
             
     task_parameters:
-      - name: base_output_folder
-        label: Base Output Folder
+      - name: output_folder 
+        label: Output Folder
         type: directory
         supports_location_mode: 'no_append'
-        help: "The base directory where the output folder will be created. NOTE: This folder will *not* be used for the output VarSeq project, should the VSPipeline step be selected. Projecst are automatically output to AppData/Projects."
-
-      - name: folder_name
-        label: Folder Name
-        type: string
-        optional: true
-        help: "The name of the output folder. If left blank, the name of the input folder will be used."
 
       - name: model_base_path
         label: Sentieon Models Base Path

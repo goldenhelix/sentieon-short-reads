@@ -78,14 +78,14 @@ parameters:
 
 agent_requirements:
   cpu_cores: 16
-  memory_gb: 16
+  memory_gb: 32
 
 steps:
   - name: dnascope
     description: Run Sentieon DNAscope variant calling
     type: cmd
     docker:
-      image: registry.goldenhelix.com/public/sentieon:202503
+      image: registry.goldenhelix.com/public/sentieon:202503.01
     args:
       - |- # shell
         set -eu pipefail
@@ -227,8 +227,8 @@ steps:
 
         esac
 
-        # Initialize GVCF inputs list for joint calling
-        GVCF_INPUTS=""
+        # Initialize GVCF inputs array for joint calling
+        GVCF_INPUTS=()
         
         # Run analysis for each input file
         for input_file in "${input_files[@]}"; do
@@ -251,15 +251,15 @@ steps:
 
           mkdir -p "$output_folder" || { echo "Failed to create output directory"; exit 1; }
           cd "$workdir" || { echo "Failed to change to output directory"; exit 1; }
-          logfile=${sample_name}_dnascope_run.log
+          logfile="${sample_name}_dnascope_run.log"
           exec > >(tee -a "$logfile") 2>&1 || { echo "Failed to redirect stdout and stderr to $logfile"; exit 1; }
 
           # Copy input files to workdir for better performance
           echo "Copying input files to workdir..."
           echo "Available space in workdir: $(df -h /scratch | awk 'NR==2 {print $4}')"
-          input_basename=$(basename "$input_file")
+          input_basename="$(basename "$input_file")"
           echo "Copying input file $input_file to workdir..."
-          rsync --progress "$input_file"* . || { echo "Failed to copy input files to workdir"; exit 1; }
+          cp "$input_file"* . || { echo "Failed to copy input files to workdir"; exit 1; }
 
           # Copy reference FASTA locally for better performance
           # Check if workspace-level variable disables copying (for fast local network drives)
@@ -268,9 +268,9 @@ steps:
             local_ref_fasta="$ref_fasta"
           else
             echo "Copying reference FASTA to workdir..."
-            rsync --progress "$ref_fasta" . || { echo "Failed to copy reference FASTA"; exit 1; }
-            rsync --progress "$ref_fasta".fai . || { echo "Failed to copy reference FASTA index"; exit 1; }
-            local_ref_fasta=$(basename "$ref_fasta")
+            cp "$ref_fasta" . || { echo "Failed to copy reference FASTA"; exit 1; }
+            cp "$ref_fasta".fai . || { echo "Failed to copy reference FASTA index"; exit 1; }
+            local_ref_fasta="$(basename "$ref_fasta")"
           fi
 
           # Construct extra parameters based on settings
@@ -310,9 +310,9 @@ steps:
             echo "*************************"
             
             # Copy must-call VCF to workdir
-            rsync --progress "$must_call_vcf" . || { echo "Failed to copy must-call VCF"; exit 1; }
-            rsync --progress "$must_call_vcf".tbi . || { echo "Failed to copy must-call VCF index"; exit 1; }
-            local_must_call_vcf=$(basename "$must_call_vcf")
+            cp "$must_call_vcf" . || { echo "Failed to copy must-call VCF"; exit 1; }
+            cp "$must_call_vcf".tbi . || { echo "Failed to copy must-call VCF index"; exit 1; }
+            local_must_call_vcf="$(basename "$must_call_vcf")"
             
             # Run DNAscope with must-call VCF
             if [[ ! -z "$model_path" ]]; then
@@ -403,15 +403,15 @@ steps:
           
           file_size=$(stat -c%s "$output_file")
           echo "$(basename "$output_file") ($file_size bytes) called in $duration seconds"
-          cp -f ${sample_name}_dnascope_run.log "$output_folder"/
+          cp -f "${sample_name}_dnascope_run.log" "$output_folder"/
 
           # Add GVCF to joint calling inputs if joint calling is enabled
           if [ "$joint_calling" = true ]; then
             if [ "$use_must_call_vcf" = true ]; then
               # Must-call mode doesn't support joint calling, but we'll add the merged VCF for consistency
-              GVCF_INPUTS="$GVCF_INPUTS -v ${output_folder}/${sample_name}_dnascope.vcf.gz"
+              GVCF_INPUTS+=("-v" "${output_folder}/${sample_name}_dnascope.vcf.gz")
             else
-              GVCF_INPUTS="$GVCF_INPUTS -v ${output_folder}/${sample_name}_dnascope.$output_suffix"
+              GVCF_INPUTS+=("-v" "${output_folder}/${sample_name}_dnascope.$output_suffix")
             fi
           fi
 
@@ -423,7 +423,7 @@ steps:
         if [ "$joint_calling" = true ]; then
           echo "*************************"
           echo "Performing joint calling..."
-          echo "GVCF Inputs: $GVCF_INPUTS"
+          echo "GVCF Inputs: ${GVCF_INPUTS[*]}"
           echo "*************************"
           
           # Use the reference FASTA from the last iteration
@@ -434,7 +434,7 @@ steps:
           fi
           
           # Run GVCFtyper for joint calling
-          sentieon driver -r "$joint_ref_fasta" --algo GVCFtyper $GVCF_INPUTS \
+          sentieon driver -r "$joint_ref_fasta" --algo GVCFtyper "${GVCF_INPUTS[@]}" \
             "${output_folder}/joint_called.vcf.gz" || \
             { echo "GVCFtyper failed"; exit 1; }
           
