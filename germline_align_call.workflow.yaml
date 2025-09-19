@@ -102,6 +102,12 @@ stages:
         type: stage
         stage: Alignment with BWA-MEM
         stage_parameter_expression: "${ref_fasta}"
+      
+      - name: output_gvcf
+        label: Output GVCF
+        type: boolean
+        value: "false"
+        help: Set to true to output GVCF format instead of VCF. Mutually exclusive with must-call VCF.
 
   - name: Create VarSeq project
     description: Create a project with called variants
