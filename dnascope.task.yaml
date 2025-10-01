@@ -32,9 +32,9 @@ parameters:
     value: "None"
     label: Machine Learning Model
     type: enum
-    choices: [None, Element Biosciences WGS 2.0, Illumina WES 2.1, Illumina WGS 2.2,
-              MGI WES 2.0, MGI WGS 2.0, Salus WES 1.0, Salus WGS 1.0, 
-              Ultima Genomics WGS 1.0]
+    choices: [None, Element Biosciences WES 2.1, Element Biosciences WGS 2.1, Illumina WES 2.1, Illumina WGS 2.2,
+              MGI WES 2.1, MGI WGS 2.1, Salus WES 1.0, Salus WGS 1.0, 
+              Ultima Genomics WGS 1.1]
     optional: false
 
   - name: model_base_path
@@ -197,16 +197,20 @@ steps:
             model_path="${model_base_path}/SentieonIlluminaWGS2.2.bundle"
             ;;
 
-          "Element Biosciences WGS 2.0")
-            model_path="${model_base_path}/DNAscopeElementBioWGS2.0.bundle"
+          "Element Biosciences WES 2.1")
+            model_path="${model_base_path}/DNAscopeElementBioWES2.1.bundle"
             ;;
 
-          "MGI WES 2.0")
-            model_path="${model_base_path}/DNAscopeMGIWES2.0.bundle"
+          "Element Biosciences WGS 2.1")
+            model_path="${model_base_path}/DNAscopeElementBioWGS2.1.bundle"
             ;;
 
-          "MGI WGS 2.0")
-            model_path="${model_base_path}/DNAscopeMGIWGS2.0.bundle"
+          "MGI WES 2.1")
+            model_path="${model_base_path}/DNAscopeMGIWES2.1.bundle"
+            ;;
+
+          "MGI WGS 2.1")
+            model_path="${model_base_path}/DNAscopeMGIWGS2.1.bundle"
             ;;
 
           "Salus WES 1.0")
@@ -217,8 +221,8 @@ steps:
             model_path="${model_base_path}/DNAscopeSalusWGS1.0.bundle"
             ;;
 
-          "Ultima Genomics WGS 1.0")
-            model_path="${model_base_path}/SentieonUltima1.0.bundle"
+          "Ultima Genomics WGS 1.1")
+            model_path="${model_base_path}/SentieonUltima1.1.bundle"
             ;;
 
           *)
