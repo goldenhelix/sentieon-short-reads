@@ -328,10 +328,20 @@ steps:
           fi)
         else
           while IFS= read -r file; do
-            reads_base="${file%.*}"
+            reads_base="${file%.fastq.gz}"
             sample_lane=$(basename "$reads_base")
             echo "input: $file"
             echo "output: ${sample_lane}.bam"
+            
+            # Validate FASTQ file before processing
+            echo "Validating FASTQ file: $file"
+            if ! zcat "$file" | awk 'NR%4==2{seq_len=length($0)} NR%4==0{qual_len=length($0); if(seq_len!=qual_len){print "ERROR: SEQ and QUAL length mismatch at line " NR-3 " (sequence length: " seq_len ", quality length: " qual_len ")"; exit 1}} END{if(NR%4!=0){print "ERROR: Invalid FASTQ format - file does not contain complete read records"; exit 1}}'; then
+              echo "ERROR: FASTQ file validation failed for $file"
+              echo "This error typically indicates corrupted or malformed FASTQ data"
+              exit 1
+            fi
+            echo "FASTQ validation passed"
+            
             bam_input="$bam_input -i ${sample_lane}.bam"
             read_groups="@RG\tID:${sample_lane}\tSM:$sample_name\tPL:$platform"
             start_time=$SECONDS
