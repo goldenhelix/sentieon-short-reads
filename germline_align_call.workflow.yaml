@@ -55,6 +55,13 @@ stages:
         label: Use Sample Name as Prefix Filter
         type: stage
         stage_parameter_expression: "true"
+        help: "If enabled, only FASTQ files starting with the sample name will be processed. Enable this when the input folder contains FASTQ files from multiple samples. If disabled, all FASTQ files in the input folder are assumed to belong to this sample."
+
+      - name: paired_end
+        label: Paired-End Reads
+        type: boolean
+        value: "true"
+        help: "Set to true if the reads are paired-end (i.e., include and R1 and R2 for each lane)."
 
   - name: Variant Calling with DNAscope 
     description: Variant calling from an alignment file with Sentieon's DNAscope algorithm
